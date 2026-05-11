@@ -98,11 +98,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo or Icon
-                  const Icon(
-                    Icons.account_balance,
-                    size: 80,
-                    color: Colors.blue,
+                  // Logo
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: 100,
+                    height: 100,
                   ),
                   const SizedBox(height: 32),
                   

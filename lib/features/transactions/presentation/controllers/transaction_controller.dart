@@ -16,6 +16,7 @@ class TransactionState {
   final String? error;
   final int currentPage;
   final int? selectedYear;
+  final String? selectedTxCode;
 
   TransactionState({
     this.data,
@@ -23,6 +24,7 @@ class TransactionState {
     this.error,
     this.currentPage = 1,
     this.selectedYear,
+    this.selectedTxCode,
   });
 
   TransactionState copyWith({
@@ -30,17 +32,25 @@ class TransactionState {
     bool? isLoading,
     String? error,
     int? currentPage,
-    int? selectedYear,
+    Object? selectedYear = _sentinel,
+    Object? selectedTxCode = _sentinel,
   }) {
     return TransactionState(
       data: data ?? this.data,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
       currentPage: currentPage ?? this.currentPage,
-      selectedYear: selectedYear ?? this.selectedYear,
+      selectedYear: selectedYear == _sentinel
+          ? this.selectedYear
+          : selectedYear as int?,
+      selectedTxCode: selectedTxCode == _sentinel
+          ? this.selectedTxCode
+          : selectedTxCode as String?,
     );
   }
 }
+
+const Object _sentinel = Object();
 
 // Controller
 class TransactionController extends StateNotifier<TransactionState> {
@@ -52,6 +62,7 @@ class TransactionController extends StateNotifier<TransactionState> {
     String accountId, {
     int page = 1,
     int? year,
+    String? txCode,
   }) async {
     state = state.copyWith(isLoading: true, error: null, currentPage: page);
     
@@ -63,11 +74,13 @@ class TransactionController extends StateNotifier<TransactionState> {
           accountId,
           year,
           page: page,
+          txCode: txCode,
         );
       } else {
         data = await _repository.getTransactionsByAccount(
           accountId,
           page: page,
+          txCode: txCode,
         );
       }
       
@@ -84,12 +97,28 @@ class TransactionController extends StateNotifier<TransactionState> {
     state = state.copyWith(selectedYear: year);
   }
 
+  void setTxCode(String? txCode) {
+    state = state.copyWith(selectedTxCode: txCode);
+  }
+
   Future<void> loadNextPage(String accountId) async {
     if (state.data?.pagination.hasNextPage ?? false) {
       await loadTransactions(
         accountId,
         page: state.currentPage + 1,
         year: state.selectedYear,
+        txCode: state.selectedTxCode,
+      );
+    }
+  }
+
+  Future<void> loadPreviousPage(String accountId) async {
+    if (state.data?.pagination.hasPreviousPage ?? false) {
+      await loadTransactions(
+        accountId,
+        page: state.currentPage - 1,
+        year: state.selectedYear,
+        txCode: state.selectedTxCode,
       );
     }
   }

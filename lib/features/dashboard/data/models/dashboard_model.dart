@@ -2,13 +2,13 @@ class DashboardData {
   final AccountInfo account;
   final LoanInfo? loan;
   final SavingsInfo? savings;
-  final FinancialSummary financialSummary;
+  final FinancialSummary? financialSummary;
 
   DashboardData({
     required this.account,
     this.loan,
     this.savings,
-    required this.financialSummary,
+    this.financialSummary,
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
@@ -20,42 +20,10 @@ class DashboardData {
       savings: json['savings'] != null
           ? SavingsInfo.fromJson(json['savings'] as Map<String, dynamic>)
           : null,
-      financialSummary: FinancialSummary.fromJson(
-          json['financialSummary'] as Map<String, dynamic>),
-    );
-  }
-}
-
-class OwnerInfo {
-  final String clientId;
-  final String clientName;
-  final String bankbookNumber;
-  final String? phoneNumber;
-  final String? gender;
-  final DateTime? birthDate;
-  final String clientType;
-
-  OwnerInfo({
-    required this.clientId,
-    required this.clientName,
-    required this.bankbookNumber,
-    this.phoneNumber,
-    this.gender,
-    this.birthDate,
-    required this.clientType,
-  });
-
-  factory OwnerInfo.fromJson(Map<String, dynamic> json) {
-    return OwnerInfo(
-      clientId: json['clientId'] as String? ?? '',
-      clientName: json['clientName'] as String? ?? 'Unknown',
-      bankbookNumber: json['bankbookNumber'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String?,
-      gender: json['gender'] as String?,
-      birthDate: json['birthDate'] != null
-          ? DateTime.tryParse(json['birthDate'] as String)
+      financialSummary: json['financialSummary'] != null
+          ? FinancialSummary.fromJson(
+              json['financialSummary'] as Map<String, dynamic>)
           : null,
-      clientType: json['clientType'] as String? ?? '',
     );
   }
 }
@@ -70,7 +38,6 @@ class AccountInfo {
   final String? vbName;
   final DateTime? openingDate;
   final String status;
-  final List<OwnerInfo> owners;
 
   AccountInfo({
     required this.accNumber,
@@ -82,11 +49,9 @@ class AccountInfo {
     this.vbName,
     this.openingDate,
     required this.status,
-    this.owners = const [],
   });
 
   factory AccountInfo.fromJson(Map<String, dynamic> json) {
-    final ownersList = json['owners'] as List<dynamic>?;
     return AccountInfo(
       accNumber: json['accNumber'] as String,
       accNameLao: json['accNameLao'] as String?,
@@ -101,11 +66,6 @@ class AccountInfo {
           ? DateTime.tryParse(json['openingDate'] as String)
           : null,
       status: (json['status'] ?? json['statusId'] ?? '') as String,
-      owners: ownersList != null
-          ? ownersList
-              .map((e) => OwnerInfo.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : [],
     );
   }
 
@@ -117,7 +77,6 @@ class LoanInfo {
   final double totalLoanAmount;
   final double loanOutstanding;
   final double interestDue;
-  final double interestPaid;
   final double principalDue;
   final double principalPaid;
   final DateTime startDate;
@@ -132,7 +91,6 @@ class LoanInfo {
     required this.totalLoanAmount,
     required this.loanOutstanding,
     required this.interestDue,
-    required this.interestPaid,
     required this.principalDue,
     required this.principalPaid,
     required this.startDate,
@@ -152,8 +110,6 @@ class LoanInfo {
           ? (json['loanOutstanding'] as num).toDouble() : 0.0,
       interestDue: json['interestDue'] != null
           ? (json['interestDue'] as num).toDouble() : 0.0,
-      interestPaid: json['interestPaid'] != null
-          ? (json['interestPaid'] as num).toDouble() : 0.0,
       principalDue: json['principalDue'] != null
           ? (json['principalDue'] as num).toDouble() : 0.0,
       principalPaid: json['principalPaid'] != null

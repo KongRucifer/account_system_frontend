@@ -7,7 +7,7 @@ class AppStrings {
   static const AppStrings lo = AppStrings._('lo');
 
   // ─── General ───────────────────────────────────────────────
-  String get appName => _s('Account System', 'ລະບົບບັນຊີ');
+  String get appName => _s('Lan Xang Banker', 'Lan Xang Banker');
   String get loading => _s('Loading...', 'ກຳລັງໂຫລດ...');
   String get retry => _s('Retry', 'ລອງໃໝ່');
   String get logout => _s('Logout', 'ອອກຈາກລະບົບ');
@@ -18,7 +18,7 @@ class AppStrings {
   String get language => _s('Language', 'ພາສາ');
 
   // ─── Login ─────────────────────────────────────────────────
-  String get loginTitle => _s('Account System', 'ລະບົບບັນຊີ');
+  String get loginTitle => _s('Lan Xang Banker', 'Lan Xang Banker');
   String get loginSubtitle => _s('Sign in to continue', 'ເຂົ້າສູ່ລະບົບເພື່ອດຳເນີນການ');
   String get username => _s('Bankbook Number', 'ເລກປື້ມທະນາຄານ');
   String get password => _s('Password', 'ລະຫັດຜ່ານ');
@@ -28,6 +28,7 @@ class AppStrings {
 
   // ─── Accounts ──────────────────────────────────────────────
   String get myAccounts => _s('My Accounts', 'ບັນຊີຂອງຂ້ອຍ');
+  String get systemName => _s('Lan Xang Banker', 'Lan Xang Banker');
   String get accountNumber => _s('Account Number', 'ເລກບັນຊີ');
   String get accountType => _s('Account Type', 'ປະເພດບັນຊີ');
   String get currentBalance => _s('Current Balance', 'ຍອດເງິນປັດຈຸບັນ');

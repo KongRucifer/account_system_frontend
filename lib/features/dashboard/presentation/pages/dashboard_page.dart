@@ -9,10 +9,12 @@ import '../controllers/dashboard_controller.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   final String accNumber;
+  final String? accountType;
 
   const DashboardPage({
     super.key,
     required this.accNumber,
+    this.accountType,
   });
 
   @override
@@ -78,18 +80,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Account Owners Card
-                          _OwnersCard(
-                            owners: state.data!.account.owners,
-                          ),
-                          const SizedBox(height: 16),
-
                           // Financial Summary
-                          _SummaryCard(
-                            summary: state.data!.financialSummary,
-                            currencyFormat: currencyFormat,
-                          ),
-                          const SizedBox(height: 16),
+                          // _SummaryCard(
+                          //   summary: state.data!.financialSummary,
+                          //   currencyFormat: currencyFormat,
+                          // ),
+                          // const SizedBox(height: 16),
 
                           // Loan Section (if exists)
                           if (state.data!.loan != null) ...[
@@ -114,7 +110,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                context.push('/transactions', extra: widget.accNumber);
+                                context.push('/transactions', extra: {
+                                  'accNumber': widget.accNumber,
+                                  'accountType': widget.accountType ?? '',
+                                });
                               },
                               icon: const Icon(Icons.list),
                               label: Text(s.viewTransactions),
@@ -168,68 +167,6 @@ class _AccountCard extends ConsumerWidget {
   }
 }
 
-class _SummaryCard extends ConsumerWidget {
-  final FinancialSummary summary;
-  final NumberFormat currencyFormat;
-
-  const _SummaryCard({
-    required this.summary,
-    required this.currencyFormat,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(languageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      color: isDark
-          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
-          : Colors.blue.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              s.financialSummary,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(),
-            _InfoRow(
-              s.currentBalance,
-              currencyFormat.format(summary.currentBalance),
-            ),
-            _InfoRow(
-              s.totalLoan,
-              currencyFormat.format(summary.totalLoanAmount),
-              valueColor: Colors.orange,
-            ),
-            _InfoRow(
-              s.loanOutstanding,
-              currencyFormat.format(summary.loanOutstanding),
-              valueColor: Colors.red,
-            ),
-            _InfoRow(
-              s.savingsBalance,
-              currencyFormat.format(summary.savingsBalance),
-              valueColor: Colors.green,
-            ),
-            const Divider(),
-            _InfoRow(
-              s.netPosition,
-              currencyFormat.format(summary.netPosition),
-              isHighlight: true,
-              valueColor: summary.netPosition >= 0 ? Colors.green : Colors.red,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _LoanCard extends ConsumerWidget {
   final LoanInfo loan;
   final NumberFormat currencyFormat;
@@ -274,7 +211,6 @@ class _LoanCard extends ConsumerWidget {
               valueColor: Colors.red,
             ),
             _InfoRow(s.interestDue, currencyFormat.format(loan.interestDue)),
-            _InfoRow(s.interestPaid, currencyFormat.format(loan.interestPaid)),
             _InfoRow(s.interestRate, '${loan.interestRate}%'),
             _InfoRow(s.loanPeriod, '${loan.loanPeriodMonths} ${s.months}'),
             if (loan.repaymentType != null)
@@ -350,149 +286,6 @@ class _SavingsCard extends ConsumerWidget {
   }
 }
 
-class _OwnersCard extends ConsumerWidget {
-  final List<OwnerInfo> owners;
-
-  const _OwnersCard({required this.owners});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(languageProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.people_outline,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  s.accountOwners,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${owners.length}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-            if (owners.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(s.noOwners,
-                      style: TextStyle(
-                          color: isDark
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600)),
-                ),
-              )
-            else
-              ...owners.asMap().entries.map((entry) {
-                final i = entry.key;
-                final owner = entry.value;
-                return Column(
-                  children: [
-                    if (i > 0) const Divider(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4)
-                            : Theme.of(context).colorScheme.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primaryContainer,
-                                child: Text(
-                                  owner.clientName.isNotEmpty
-                                      ? owner.clientName[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      owner.clientName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(fontWeight: FontWeight.bold),
-                                    ),
-                                    if (owner.gender != null)
-                                      Text(
-                                        owner.gender!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                                color: isDark
-                                                    ? Colors.grey.shade400
-                                                    : Colors.grey.shade600),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          _InfoRow(s.bankbookNo, owner.bankbookNumber),
-                          if (owner.phoneNumber != null && owner.phoneNumber!.isNotEmpty)
-                            _InfoRow(s.phone, owner.phoneNumber!),
-                          if (owner.birthDate != null)
-                            _InfoRow(
-                              s.birthDate,
-                              '${owner.birthDate!.day.toString().padLeft(2, '0')}/${owner.birthDate!.month.toString().padLeft(2, '0')}/${owner.birthDate!.year}',
-                            ),
-                          if (owner.clientType.isNotEmpty)
-                            _InfoRow(s.clientType, owner.clientType),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _InfoRow extends StatelessWidget {
   final String label;

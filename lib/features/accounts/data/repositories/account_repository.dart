@@ -7,24 +7,18 @@ class AccountRepository {
 
   AccountRepository(this._dio);
 
-  Future<List<Account>> getAccountsByUser(String clientId) async {
+  Future<AccountsResponse> getAccountsByUser(String clientId) async {
     try {
       final response = await _dio.get(
         ApiConstants.accountsByUser(clientId),
       );
-      
+
       if (response.statusCode == 200) {
         final data = response.data;
-        // findByUser returns a plain array
-        if (data is List) {
-          return data.map((e) => Account.fromJson(e as Map<String, dynamic>)).toList();
+        if (data is Map<String, dynamic>) {
+          return AccountsResponse.fromJson(data);
         }
-        // fallback: paginated response
-        if (data is Map && data.containsKey('results')) {
-          final List<dynamic> results = data['results'];
-          return results.map((e) => Account.fromJson(e as Map<String, dynamic>)).toList();
-        }
-        return [];
+        return AccountsResponse(myAccounts: []);
       } else {
         throw Exception('Failed to load accounts: ${response.statusMessage}');
       }

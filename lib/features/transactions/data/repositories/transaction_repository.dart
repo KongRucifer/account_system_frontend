@@ -11,14 +11,14 @@ class TransactionRepository {
     String accountId, {
     int page = 1,
     int limit = 10,
+    String? txCode,
   }) async {
     try {
+      final params = <String, dynamic>{'page': page, 'limit': limit};
+      if (txCode != null) params['txCode'] = txCode;
       final response = await _dio.get(
         ApiConstants.transactionsByAccount(accountId),
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-        },
+        queryParameters: params,
       );
       
       if (response.statusCode == 200) {
@@ -36,14 +36,14 @@ class TransactionRepository {
     int year, {
     int page = 1,
     int limit = 10,
+    String? txCode,
   }) async {
     try {
+      final params = <String, dynamic>{'page': page, 'limit': limit};
+      if (txCode != null) params['txCode'] = txCode;
       final response = await _dio.get(
         ApiConstants.transactionsByAccountAndYear(accountId, year),
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-        },
+        queryParameters: params,
       );
       
       if (response.statusCode == 200) {

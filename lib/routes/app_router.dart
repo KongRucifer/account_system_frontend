@@ -26,26 +26,42 @@ class AppRouter {
         path: '/dashboard',
         name: 'dashboard',
         builder: (context, state) {
-          final accNumber = state.extra as String?;
+          final extra = state.extra;
+          String? accNumber;
+          String? accountType;
+          if (extra is Map) {
+            accNumber = extra['accNumber'] as String?;
+            accountType = extra['accountType'] as String?;
+          } else if (extra is String) {
+            accNumber = extra;
+          }
           if (accNumber == null) {
             return const Scaffold(
               body: Center(child: Text('Account number required')),
             );
           }
-          return DashboardPage(accNumber: accNumber);
+          return DashboardPage(accNumber: accNumber, accountType: accountType);
         },
       ),
       GoRoute(
         path: '/transactions',
         name: 'transactions',
         builder: (context, state) {
-          final accNumber = state.extra as String?;
+          final extra = state.extra;
+          String? accNumber;
+          String? accountType;
+          if (extra is Map) {
+            accNumber = extra['accNumber'] as String?;
+            accountType = extra['accountType'] as String?;
+          } else if (extra is String) {
+            accNumber = extra;
+          }
           if (accNumber == null) {
             return const Scaffold(
               body: Center(child: Text('Account number required')),
             );
           }
-          return TransactionsPage(accNumber: accNumber);
+          return TransactionsPage(accNumber: accNumber, accountType: accountType);
         },
       ),
     ],

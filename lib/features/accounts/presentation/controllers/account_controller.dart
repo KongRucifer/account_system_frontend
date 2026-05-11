@@ -12,22 +12,26 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 // State
 class AccountState {
   final List<Account> accounts;
+  final AccountOwnerInfo? accountOwner;
   final bool isLoading;
   final String? error;
 
   AccountState({
     this.accounts = const [],
+    this.accountOwner,
     this.isLoading = false,
     this.error,
   });
 
   AccountState copyWith({
     List<Account>? accounts,
+    AccountOwnerInfo? accountOwner,
     bool? isLoading,
     String? error,
   }) {
     return AccountState(
       accounts: accounts ?? this.accounts,
+      accountOwner: accountOwner ?? this.accountOwner,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
@@ -42,10 +46,14 @@ class AccountController extends StateNotifier<AccountState> {
 
   Future<void> loadAccounts(String clientId) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
-      final accounts = await _repository.getAccountsByUser(clientId);
-      state = state.copyWith(accounts: accounts, isLoading: false);
+      final result = await _repository.getAccountsByUser(clientId);
+      state = AccountState(
+        accounts: result.myAccounts,
+        accountOwner: result.accountOwner,
+        isLoading: false,
+      ); 
     } catch (e) {
       state = state.copyWith(
         error: e.toString(),
