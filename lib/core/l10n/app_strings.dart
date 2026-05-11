@@ -20,10 +20,10 @@ class AppStrings {
   // ─── Login ─────────────────────────────────────────────────
   String get loginTitle => _s('Account System', 'ລະບົບບັນຊີ');
   String get loginSubtitle => _s('Sign in to continue', 'ເຂົ້າສູ່ລະບົບເພື່ອດຳເນີນການ');
-  String get username => _s('Username', 'ຊື່ຜູ້ໃຊ້');
+  String get username => _s('Bankbook Number', 'ເລກປື້ມທະນາຄານ');
   String get password => _s('Password', 'ລະຫັດຜ່ານ');
   String get loginButton => _s('Login', 'ເຂົ້າສູ່ລະບົບ');
-  String get usernameRequired => _s('Please enter username', 'ກະລຸນາປ້ອນຊື່ຜູ້ໃຊ້');
+  String get usernameRequired => _s('Please enter bankbook number', 'ກະລຸນາປ້ອນເລກປື້ມທະນາຄານ');
   String get passwordRequired => _s('Please enter password', 'ກະລຸນາປ້ອນລະຫັດຜ່ານ');
 
   // ─── Accounts ──────────────────────────────────────────────
@@ -40,7 +40,7 @@ class AppStrings {
   // ─── Account Owners ─────────────────────────────────────────
   String get accountOwners => _s('Account Owners', 'ເຈົ້າຂອງບັນຊີ');
   String get ownerName => _s('Name', 'ຊື່');
-  String get bankbookNo => _s('Bankbook No.', 'ເລກສະໝຸດ');
+  String get bankbookNo => _s('Bankbook No.', 'ເລກປື້ມທະນາຄານ');
   String get phone => _s('Phone', 'ເບີໂທ');
   String get gender => _s('Gender', 'ເພດ');
   String get birthDate => _s('Birth Date', 'ວັນເດືອນປີເກີດ');

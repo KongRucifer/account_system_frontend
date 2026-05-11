@@ -38,7 +38,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.myAccounts),
+        title: Text(user != null ? '${s.myAccounts} · ${user.displayName}' : s.myAccounts),
         actions: [
           const LangToggleButton(),
           const SizedBox(width: 4),
@@ -154,17 +154,17 @@ class _AccountCard extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: account.status == '1'
+                      color: account.status == '2'
                           ? Colors.green.shade100
                           : Colors.red.shade100,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      account.status == '1'
+                      account.status == '2'
                           ? (s.langCode == 'lo' ? 'ເປີດໃຊ້' : 'Active')
                           : (s.langCode == 'lo' ? 'ປິດໃຊ້' : 'Inactive'),
                       style: TextStyle(
-                        color: account.status == '1'
+                        color: account.status == '2'
                             ? Colors.green.shade700
                             : Colors.red.shade700,
                         fontSize: 12,

@@ -122,12 +122,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   const SizedBox(height: 32),
                   
-                  // Username Field
+                  // Bankbook Number Field
                   TextFormField(
                     controller: _userNameController,
+                    keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: s.username,
-                      prefixIcon: const Icon(Icons.person),
+                      prefixIcon: const Icon(Icons.book_outlined),
                       border: const OutlineInputBorder(),
                     ),
                     validator: (value) {

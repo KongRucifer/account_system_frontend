@@ -40,11 +40,11 @@ class AccountController extends StateNotifier<AccountState> {
 
   AccountController(this._repository) : super(AccountState());
 
-  Future<void> loadAccounts(int userId) async {
+  Future<void> loadAccounts(String clientId) async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
-      final accounts = await _repository.getAccountsByUser(userId);
+      final accounts = await _repository.getAccountsByUser(clientId);
       state = state.copyWith(accounts: accounts, isLoading: false);
     } catch (e) {
       state = state.copyWith(

@@ -43,12 +43,12 @@ class AuthController extends StateNotifier<AuthState> {
 
   AuthController(this._repository, this._storage) : super(AuthState());
 
-  Future<bool> login(String userName, String password) async {
+  Future<bool> login(String bankbookNumber, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
       final request = LoginRequest(
-        userName: userName,
+        bankbookNumber: bankbookNumber,
         password: password,
       );
       

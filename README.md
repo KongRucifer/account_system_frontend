@@ -21,13 +21,13 @@ samples, guidance on mobile development, and a full API reference.
 Recommended Flutter Packages
 State management:
     Provider
-    Riverpod
+    Riverpod <------
     GetX
 API:
-    Dio
+    Dio   <------
     http
 Routing:
-    go_router
+    go_router  
 
 
     3. ໂຄງສ້າງຂອງ Project ທີ່ຄວນຮູ້

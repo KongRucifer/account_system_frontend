@@ -1,15 +1,15 @@
 class LoginRequest {
-  final String userName;
+  final String bankbookNumber;
   final String password;
 
   LoginRequest({
-    required this.userName,
+    required this.bankbookNumber,
     required this.password,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'username': userName,
+      'bankbookNumber': bankbookNumber,
       'password': password,
     };
   }

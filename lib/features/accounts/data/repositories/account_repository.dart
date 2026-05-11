@@ -7,11 +7,10 @@ class AccountRepository {
 
   AccountRepository(this._dio);
 
-  Future<List<Account>> getAccountsByUser(int userId) async {
+  Future<List<Account>> getAccountsByUser(String clientId) async {
     try {
       final response = await _dio.get(
-        ApiConstants.accounts,
-        queryParameters: {'limit': 50},
+        ApiConstants.accountsByUser(clientId),
       );
       
       if (response.statusCode == 200) {
