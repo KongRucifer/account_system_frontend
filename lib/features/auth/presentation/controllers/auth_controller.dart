@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/core_providers.dart';
 import '../../../../core/services/storage_service.dart';
@@ -54,10 +55,17 @@ class AuthController extends StateNotifier<AuthState> {
       
       final user = await _repository.login(request);
       
-      // Save token and user data
-      if (user.accessToken != null) {
-        await _storage.saveToken(user.accessToken!);
+      // Save tokens for mobile app (web uses cookies)
+      if (!kIsWeb) {
+        if (user.accessToken != null) {
+          await _storage.saveToken(user.accessToken!);
+        }
+        if (user.refreshToken != null) {
+          await _storage.saveRefreshToken(user.refreshToken!);
+        }
       }
+      
+      // Save user data
       await _storage.saveUser(user.toJson());
       
       state = state.copyWith(user: user, isLoading: false);
@@ -71,8 +79,38 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Call logout endpoint to revoke refresh token on server
+    await _repository.logout();
+    
+    // Clear local storage
     await _storage.clearAll();
     state = AuthState();
+  }
+
+  Future<bool> refreshToken() async {
+    try {
+      final user = await _repository.refreshToken();
+      
+      if (user != null) {
+        // Save new tokens for mobile app
+        if (!kIsWeb) {
+          if (user.accessToken != null) {
+            await _storage.saveToken(user.accessToken!);
+          }
+          if (user.refreshToken != null) {
+            await _storage.saveRefreshToken(user.refreshToken!);
+          }
+        }
+        
+        // Update user data
+        await _storage.saveUser(user.toJson());
+        state = state.copyWith(user: user);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> checkAuth() async {
