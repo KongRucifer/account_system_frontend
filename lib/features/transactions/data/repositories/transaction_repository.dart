@@ -10,7 +10,7 @@ class TransactionRepository {
   Future<PaginatedTransactions> getTransactionsByAccount(
     String accountId, {
     int page = 1,
-    int limit = 10,
+    int limit = 12,
     String? txCode,
   }) async {
     try {
@@ -35,7 +35,7 @@ class TransactionRepository {
     String accountId,
     int year, {
     int page = 1,
-    int limit = 10,
+    int limit = 12,
     String? txCode,
   }) async {
     try {
