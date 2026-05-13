@@ -119,6 +119,60 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(user: User.fromJson(userData));
     }
   }
+
+  Future<Map<String, dynamic>?> register({
+    required String bankbookNumber,
+    required String password,
+    required String confirmPassword,
+    required String phoneNumber,
+    required String vbCode,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    
+    try {
+      final result = await _repository.register(
+        bankbookNumber: bankbookNumber,
+        password: password,
+        confirmPassword: confirmPassword,
+        phoneNumber: phoneNumber,
+        vbCode: vbCode,
+      );
+      
+      state = state.copyWith(isLoading: false, error: null);
+      return result;
+    } catch (e) {
+      final raw = e.toString();
+      final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      state = state.copyWith(error: msg, isLoading: false);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> resetPassword({
+    required String phoneNumber,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    
+    try {
+      final result = await _repository.resetPassword(
+        phoneNumber: phoneNumber,
+        newPassword: newPassword,
+      );
+      
+      state = state.copyWith(isLoading: false, error: null);
+      return result;
+    } catch (e) {
+      final raw = e.toString();
+      final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      state = state.copyWith(error: msg, isLoading: false);
+      return null;
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
 }
 
 // Provider for AuthController

@@ -25,6 +25,57 @@ class AppStrings {
   String get loginButton => _s('Login', 'ເຂົ້າສູ່ລະບົບ');
   String get usernameRequired => _s('Please enter bankbook number', 'ກະລຸນາປ້ອນເລກປື້ມທະນາຄານ');
   String get passwordRequired => _s('Please enter password', 'ກະລຸນາປ້ອນລະຫັດຜ່ານ');
+  String get forgotPassword => _s('Forgot Password?', 'ລືມລະຫັດຜ່ານ?');
+  String get bankbookIncorrect => _s('Bank book number is incorrect', 'ເລກປື້ມທະນາຄານບໍ່ຖືກຕ້ອງ');
+  String get passwordIncorrect => _s('Password is incorrect', 'ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
+  String get noAccount => _s("Don't have an account?", 'ຍັງບໍ່ມີບັນຊີ?');
+  String get haveAccount => _s('Already have an account?', 'ມີບັນຊີແລ້ວ?');
+  String get registerNow => _s('Register', 'ລົງທະບຽນ');
+  String get loginNow => _s('Login', 'ເຂົ້າສູ່ລະບົບ');
+
+  // ─── Register ──────────────────────────────────────────────
+  String get registerTitle => _s('Create Account', 'ສ້າງບັນຊີ');
+  String get registerSubtitle => _s('Fill in your information', 'ກະລຸນາປ້ອນຂໍ້ມູນຂອງທ່ານ');
+  String get bankbookNumber => _s('Bankbook Number', 'ເລກປື້ມທະນາຄານ');
+  String get confirmPassword => _s('Confirm Password', 'ຢືນຢັນລະຫັດຜ່ານ');
+  String get phoneNumber => _s('Phone Number', 'ເບີໂທລະສັບ');
+  String get vbCode => _s('Village Code', 'ເລກລະຫັດບ້ານ');
+  String get bankbookRequired => _s('Please enter bankbook number', 'ກະລຸນາປ້ອນເລກປື້ມທະນາຄານ');
+  String get passwordTooShort => _s('Password must be at least 6 characters', 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງຫນ້ອຍ 6 ຕົວອັກສອນ');
+  String get passwordMismatch => _s('Passwords do not match', 'ລະຫັດຜ່ານບໍ່ກົງກັນ');
+  String get phoneRequired => _s('Please enter phone number', 'ກະລຸນາປ້ອນເບີໂທລະສັບ');
+  String get vbCodeRequired => _s('Please enter village code', 'ກະລຸນາປ້ອນເລກລະຫັດບ້ານ');
+  String get bankbookTooLong => _s('Bankbook number must be shorter than or equal to 5 characters', 'ເລກປື້ມທະນາຄານຕ້ອງມີບໍ່ເກີນ 5 ຕົວອັກສອນ');
+  String get passwordConfirmMismatch => _s('Password and confirm password do not match', 'ລະຫັດຜ່ານ ແລະ ຢືນຢັນລະຫັດຜ່ານບໍ່ກົງກັນ');
+  String get registerButton => _s('Register', 'ລົງທະບຽນ');
+  String get registerSuccess => _s('Registration successful!', 'ລົງທະບຽນສຳເລັດ!');
+  String get registerSuccessMessage => _s('You can now login with your account.', 'ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍບັນຊີຂອງທ່ານໄດ້ແລ້ວ.');
+  String get invalidClientInfo => _s('Invalid phone number, village code, or bankbook number', 'ເບີໂທ ລະຫັດບ້ານ ຫຼື ເລກປື້ມທະນາຄານບໍ່ຖືກຕ້ອງ');
+  
+  String get alreadyHaveAccount => _s('You already have an account. Please login.', 'ທ່ານມີບັນຊີນີ້ແລ້ວ. ກະລຸນາເຂົ້າສູ່ລະບົບ.');
+
+  // ─── Reset Password ────────────────────────────────────────
+  String get resetPasswordTitle => _s('Reset Password', 'ຣີເຊັດລະຫັດຜ່ານ');
+  String get resetPasswordSubtitle => _s('Enter your phone number and new password', 'ປ້ອນເບີໂທລະສັບ ແລະ ລະຫັດຜ່ານໃໝ່');
+  String get newPassword => _s('New Password', 'ລະຫັດຜ່ານໃໝ່');
+  String newPasswordRequired(String min) => _s('Please enter new password (min $min chars)', 'ກະລຸນາປ້ອນລະຫັດຜ່ານໃໝ່ (ຢ່າງຫນ້ອຍ $min ຕົວອັກສອນ)');
+  String get resetButton => _s('Reset Password', 'ຣີເຊັດລະຫັດຜ່ານ');
+  String get resetSuccess => _s('Password reset successful!', 'ຣີເຊັດລະຫັດຜ່ານສຳເລັດ!');
+  String get resetSuccessMessage => _s('You can now login with your new password.', 'ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍລະຫັດຜ່ານໃໝ່ໄດ້ແລ້ວ.');
+  String get resetSuccessBackend => _s('Password reset successful. You can now login with your new password.', 'ຣີເຊັດລະຫັດຜ່ານສຳເລັດ. ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍລະຫັດຜ່ານໃໝ່ໄດ້ແລ້ວ.');
+  String get phoneNumberNotFound => _s('Phone number not found', 'ບໍ່ພົບເບີໂທລະສັບນີ້');
+  String get accountNotFoundForPhone => _s('Account not found for this phone number', 'ບໍ່ພົບບັນຊີສຳລັບເບີໂທລະສັບນີ້');
+
+  // ─── Default Error Messages ────────────────────────────────
+  String get loginFailed => _s('Login failed', 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+  String get registrationFailed => _s('Registration failed', 'ລົງທະບຽນບໍ່ສຳເລັດ');
+  String get resetPasswordFailed => _s('Reset password failed', 'ຣີເຊັດລະຫັດຜ່ານບໍ່ສຳເລັດ');
+
+  // ─── Toast Messages ────────────────────────────────────────
+  String get success => _s('Success', 'ສຳເລັດ');
+  String get warning => _s('Warning', 'ເຕືອນ');
+  String get info => _s('Info', 'ຂໍ້ມູນ');
+  String get backToLogin => _s('Back to Login', 'ກັບໄປເຂົ້າສູ່ລະບົບ');
 
   // ─── Accounts ──────────────────────────────────────────────
   String get myAccounts => _s('My Accounts', 'ບັນຊີຂອງຂ້ອຍ');
