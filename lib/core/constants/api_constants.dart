@@ -13,7 +13,7 @@ class ApiConstants {
   
   // Accounts
   static const String accounts = '/accounts';
-  static String accountsByUser(String userId) => '/accounts/user/$userId';
+  static String accountsByUser(String bankbookNumber, String vbCode) => '/accounts/user/$bankbookNumber/$vbCode';
   static String accountDetail(String accNumber) => '/accounts/$accNumber/detail';
   
   // Dashboard

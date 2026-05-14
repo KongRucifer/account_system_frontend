@@ -11,27 +11,45 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 
 // State
 class AccountState {
-  final List<Account> accounts;
-  final AccountOwnerInfo? accountOwner;
+  final String bankbookNumber;
+  final String? vbCode;
+  final String? username;
+  final List<AccountOwnerInfo> accountOwners;
+  final List<Account> savingsAccounts;
+  final List<Account> loanAccounts;
   final bool isLoading;
   final String? error;
 
   AccountState({
-    this.accounts = const [],
-    this.accountOwner,
+    this.bankbookNumber = '',
+    this.vbCode,
+    this.username,
+    this.accountOwners = const [],
+    this.savingsAccounts = const [],
+    this.loanAccounts = const [],
     this.isLoading = false,
     this.error,
   });
 
+  List<Account> get accounts => [...savingsAccounts, ...loanAccounts];
+
   AccountState copyWith({
-    List<Account>? accounts,
-    AccountOwnerInfo? accountOwner,
+    String? bankbookNumber,
+    String? vbCode,
+    String? username,
+    List<AccountOwnerInfo>? accountOwners,
+    List<Account>? savingsAccounts,
+    List<Account>? loanAccounts,
     bool? isLoading,
     String? error,
   }) {
     return AccountState(
-      accounts: accounts ?? this.accounts,
-      accountOwner: accountOwner ?? this.accountOwner,
+      bankbookNumber: bankbookNumber ?? this.bankbookNumber,
+      vbCode: vbCode ?? this.vbCode,
+      username: username ?? this.username,
+      accountOwners: accountOwners ?? this.accountOwners,
+      savingsAccounts: savingsAccounts ?? this.savingsAccounts,
+      loanAccounts: loanAccounts ?? this.loanAccounts,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
@@ -44,14 +62,18 @@ class AccountController extends StateNotifier<AccountState> {
 
   AccountController(this._repository) : super(AccountState());
 
-  Future<void> loadAccounts(String clientId) async {
+  Future<void> loadAccounts(String bankbookNumber, String vbCode) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final result = await _repository.getAccountsByUser(clientId);
+      final result = await _repository.getAccountsByUser(bankbookNumber, vbCode);
       state = AccountState(
-        accounts: result.myAccounts,
-        accountOwner: result.accountOwner,
+        bankbookNumber: result.bankbookNumber,
+        vbCode: result.vbCode,
+        username: result.username,
+        accountOwners: result.accountOwners,
+        savingsAccounts: result.savingsAccounts,
+        loanAccounts: result.loanAccounts,
         isLoading: false,
       ); 
     } catch (e) {

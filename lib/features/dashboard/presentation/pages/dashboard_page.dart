@@ -152,7 +152,7 @@ class _AccountCard extends ConsumerWidget {
             ),
             const Divider(),
             _InfoRow(s.accountNumber, account.accNumber),
-            _InfoRow(s.langCode == 'lo' ? 'ຊື່:' : 'Name:', account.displayName),
+            // _InfoRow(s.langCode == 'lo' ? 'ຊື່:' : 'Name:', account.displayName),
             _InfoRow(s.accountType, account.accountType ?? 'N/A'),
             _InfoRow(s.branch, account.vbName ?? account.vbCode),
             _InfoRow(

@@ -7,10 +7,10 @@ class AccountRepository {
 
   AccountRepository(this._dio);
 
-  Future<AccountsResponse> getAccountsByUser(String clientId) async {
+  Future<AccountsResponse> getAccountsByUser(String bankbookNumber, String vbCode) async {
     try {
       final response = await _dio.get(
-        ApiConstants.accountsByUser(clientId),
+        ApiConstants.accountsByUser(bankbookNumber, vbCode),
       );
 
       if (response.statusCode == 200) {
@@ -18,7 +18,7 @@ class AccountRepository {
         if (data is Map<String, dynamic>) {
           return AccountsResponse.fromJson(data);
         }
-        return AccountsResponse(myAccounts: []);
+        return AccountsResponse();
       } else {
         throw Exception('Failed to load accounts: ${response.statusMessage}');
       }

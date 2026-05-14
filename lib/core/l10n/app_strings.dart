@@ -20,13 +20,14 @@ class AppStrings {
   // ─── Login ─────────────────────────────────────────────────
   String get loginTitle => _s('Lan Xang Banker', 'Lan Xang Banker');
   String get loginSubtitle => _s('Sign in to continue', 'ເຂົ້າສູ່ລະບົບເພື່ອດຳເນີນການ');
-  String get username => _s('Bankbook Number', 'ເລກປື້ມທະນາຄານ');
+  String get username => _s('Username', 'ຊື່ຜູ້ໃຊ້');
   String get password => _s('Password', 'ລະຫັດຜ່ານ');
   String get loginButton => _s('Login', 'ເຂົ້າສູ່ລະບົບ');
-  String get usernameRequired => _s('Please enter bankbook number', 'ກະລຸນາປ້ອນເລກປື້ມທະນາຄານ');
+  String get usernameRequired => _s('Please enter username', 'ກະລຸນາປ້ອນຊື່ຜູ້ໃຊ້');
   String get passwordRequired => _s('Please enter password', 'ກະລຸນາປ້ອນລະຫັດຜ່ານ');
   String get forgotPassword => _s('Forgot Password?', 'ລືມລະຫັດຜ່ານ?');
-  String get bankbookIncorrect => _s('Bank book number is incorrect', 'ເລກປື້ມທະນາຄານບໍ່ຖືກຕ້ອງ');
+  String get usernameIncorrect => _s('Username is incorrect', 'ຊື່ຜູ້ໃຊ້ບໍ່ຖືກຕ້ອງ');
+  String get bankbookIncorrect => _s('Username is incorrect', 'ຊື່ຜູ້ໃຊ້ບໍ່ຖືກຕ້ອງ');
   String get passwordIncorrect => _s('Password is incorrect', 'ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
   String get noAccount => _s("Don't have an account?", 'ຍັງບໍ່ມີບັນຊີ?');
   String get haveAccount => _s('Already have an account?', 'ມີບັນຊີແລ້ວ?');
@@ -47,11 +48,12 @@ class AppStrings {
   String get vbCodeRequired => _s('Please enter village code', 'ກະລຸນາປ້ອນເລກລະຫັດບ້ານ');
   String get bankbookTooLong => _s('Bankbook number must be shorter than or equal to 5 characters', 'ເລກປື້ມທະນາຄານຕ້ອງມີບໍ່ເກີນ 5 ຕົວອັກສອນ');
   String get passwordConfirmMismatch => _s('Password and confirm password do not match', 'ລະຫັດຜ່ານ ແລະ ຢືນຢັນລະຫັດຜ່ານບໍ່ກົງກັນ');
+  String get usernameTaken => _s('Username is already taken. Please choose another.', 'ຊື່ຜູ້ໃຊ້ນີ້ຖືກໃຊ້ແລ້ວ. ກະລຸນາເລືອກຊື່ອື່ນ.');
   String get registerButton => _s('Register', 'ລົງທະບຽນ');
   String get registerSuccess => _s('Registration successful!', 'ລົງທະບຽນສຳເລັດ!');
   String get registerSuccessMessage => _s('You can now login with your account.', 'ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍບັນຊີຂອງທ່ານໄດ້ແລ້ວ.');
-  String get invalidClientInfo => _s('Invalid phone number, village code, or bankbook number', 'ເບີໂທ ລະຫັດບ້ານ ຫຼື ເລກປື້ມທະນາຄານບໍ່ຖືກຕ້ອງ');
-  
+  String get invalidClientInfo => _s('Invalid village code or bankbook number', 'ລະຫັດບ້ານ ຫຼື ເລກປື້ມທະນາຄານບໍ່ຖືກຕ້ອງ');
+
   String get alreadyHaveAccount => _s('You already have an account. Please login.', 'ທ່ານມີບັນຊີນີ້ແລ້ວ. ກະລຸນາເຂົ້າສູ່ລະບົບ.');
 
   // ─── Reset Password ────────────────────────────────────────
@@ -63,8 +65,9 @@ class AppStrings {
   String get resetSuccess => _s('Password reset successful!', 'ຣີເຊັດລະຫັດຜ່ານສຳເລັດ!');
   String get resetSuccessMessage => _s('You can now login with your new password.', 'ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍລະຫັດຜ່ານໃໝ່ໄດ້ແລ້ວ.');
   String get resetSuccessBackend => _s('Password reset successful. You can now login with your new password.', 'ຣີເຊັດລະຫັດຜ່ານສຳເລັດ. ທ່ານສາມາດເຂົ້າສູ່ລະບົບດ້ວຍລະຫັດຜ່ານໃໝ່ໄດ້ແລ້ວ.');
-  String get phoneNumberNotFound => _s('Phone number not found', 'ບໍ່ພົບເບີໂທລະສັບນີ້');
-  String get accountNotFoundForPhone => _s('Account not found for this phone number', 'ບໍ່ພົບບັນຊີສຳລັບເບີໂທລະສັບນີ້');
+  String get noAccountForPhone => _s('No account found for this phone number', 'ບໍ່ພົບບັນຊີທີ່ໃຊ້ເບີໂທລະສັບນີ້');
+  String get phoneNumberNotFound => _s('No account found for this phone number', 'ບໍ່ພົບບັນຊີທີ່ໃຊ້ເບີໂທລະສັບນີ້');
+  String get accountNotFoundForPhone => _s('No account found for this phone number', 'ບໍ່ພົບບັນຊີທີ່ໃຊ້ເບີໂທລະສັບນີ້');
 
   // ─── Default Error Messages ────────────────────────────────
   String get loginFailed => _s('Login failed', 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');

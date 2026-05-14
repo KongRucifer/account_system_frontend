@@ -21,11 +21,17 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
   bool _obscureNewPassword = true;
 
   String _getTranslatedError(String error, AppStrings s) {
+    if (error.contains('No account found for this phone number')) {
+      return s.noAccountForPhone;
+    }
     if (error.contains('Phone number not found')) {
-      return s.phoneNumberNotFound;
+      return s.noAccountForPhone;
     }
     if (error.contains('Account not found for this phone number')) {
-      return s.accountNotFoundForPhone;
+      return s.noAccountForPhone;
+    }
+    if (error.toLowerCase().contains('cannot connect') || error.toLowerCase().contains('connection')) {
+      return s.langCode == 'lo' ? 'ບໍ່ສາມາດເຊື່ອມຕໍ່ server ໄດ້. ກວດສອບການເຊື່ອມຕໍ່ຂອງທ່ານ.' : 'Cannot connect to server. Please check your connection.';
     }
     if (error == 'Reset password failed') {
       return s.resetPasswordFailed;

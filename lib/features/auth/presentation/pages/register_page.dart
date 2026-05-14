@@ -16,10 +16,11 @@ class RegisterPage extends ConsumerStatefulWidget {
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _bankbookController = TextEditingController();
+  final _vbCodeController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _vbCodeController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -27,25 +28,35 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   @override
   void dispose() {
     _bankbookController.dispose();
+    _vbCodeController.dispose();
+    _usernameController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _phoneController.dispose();
-    _vbCodeController.dispose();
     super.dispose();
   }
 
   String _getTranslatedError(String error, AppStrings s) {
+    if (error.contains('Invalid village code or bankbook number')) {
+      return s.invalidClientInfo;
+    }
     if (error.contains('Invalid phone number, village code, or bankbook number')) {
       return s.invalidClientInfo;
     }
-    if (error.contains('bankbookNumber must be shorter than or equal to 5 characters')) {
-      return s.bankbookTooLong;
+    if (error.contains('Username is already taken')) {
+      return s.usernameTaken;
+    }
+    if (error.contains('You already have an account')) {
+      return s.alreadyHaveAccount;
     }
     if (error.contains('Password and confirm password do not match')) {
       return s.passwordConfirmMismatch;
     }
-    if (error.contains('You already have an account')) {
-      return s.alreadyHaveAccount;
+    if (error.contains('bankbookNumber must be shorter than or equal to 5 characters')) {
+      return s.bankbookTooLong;
+    }
+    if (error.toLowerCase().contains('cannot connect') || error.toLowerCase().contains('connection')) {
+      return s.langCode == 'lo' ? 'ບໍ່ສາມາດເຊື່ອມຕໍ່ server ໄດ້. ກວດສອບການເຊື່ອມຕໍ່ຂອງທ່ານ.' : 'Cannot connect to server. Please check your connection.';
     }
     if (error == 'Registration failed') {
       return s.registrationFailed;
@@ -112,10 +123,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       final s = ref.read(languageProvider);
       final result = await ref.read(authControllerProvider.notifier).register(
         bankbookNumber: _bankbookController.text.trim(),
+        vbCode: _vbCodeController.text.trim(),
+        username: _usernameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
         password: _passwordController.text.trim(),
         confirmPassword: _confirmPasswordController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        vbCode: _vbCodeController.text.trim(),
       );
 
       if (result != null && mounted) {
@@ -201,6 +213,52 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Village Code Field
+                  TextFormField(
+                    controller: _vbCodeController,
+                    decoration: InputDecoration(
+                      labelText: s.vbCode,
+                      prefixIcon: const Icon(Icons.location_on_outlined),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value?.isEmpty ?? true) return s.vbCodeRequired;
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Username Field
+                  TextFormField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: s.username,
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value?.isEmpty ?? true) return s.usernameRequired;
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Phone Number Field
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: s.phoneNumber,
+                      prefixIcon: const Icon(Icons.phone),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value?.isEmpty ?? true) return s.phoneRequired;
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
                   // Password Field
                   TextFormField(
                     controller: _passwordController,
@@ -250,37 +308,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     validator: (value) {
                       if (value?.isEmpty ?? true) return s.passwordRequired;
                       if (value != _passwordController.text) return s.passwordMismatch;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Phone Number Field
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: s.phoneNumber,
-                      prefixIcon: const Icon(Icons.phone),
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.phoneRequired;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Village Code Field
-                  TextFormField(
-                    controller: _vbCodeController,
-                    decoration: InputDecoration(
-                      labelText: s.vbCode,
-                      prefixIcon: const Icon(Icons.location_on_outlined),
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.vbCodeRequired;
                       return null;
                     },
                   ),

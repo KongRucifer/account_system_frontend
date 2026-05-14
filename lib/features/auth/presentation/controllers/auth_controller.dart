@@ -44,12 +44,12 @@ class AuthController extends StateNotifier<AuthState> {
 
   AuthController(this._repository, this._storage) : super(AuthState());
 
-  Future<bool> login(String bankbookNumber, String password) async {
+  Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
       final request = LoginRequest(
-        bankbookNumber: bankbookNumber,
+        username: username,
         password: password,
       );
       
@@ -122,20 +122,22 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<Map<String, dynamic>?> register({
     required String bankbookNumber,
+    required String vbCode,
+    required String username,
+    required String phoneNumber,
     required String password,
     required String confirmPassword,
-    required String phoneNumber,
-    required String vbCode,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
       final result = await _repository.register(
         bankbookNumber: bankbookNumber,
+        vbCode: vbCode,
+        username: username,
+        phoneNumber: phoneNumber,
         password: password,
         confirmPassword: confirmPassword,
-        phoneNumber: phoneNumber,
-        vbCode: vbCode,
       );
       
       state = state.copyWith(isLoading: false, error: null);

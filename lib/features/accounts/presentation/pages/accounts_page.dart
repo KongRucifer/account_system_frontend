@@ -22,7 +22,10 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authControllerProvider).user;
       if (user != null) {
-        ref.read(accountControllerProvider.notifier).loadAccounts(user.id);
+        ref.read(accountControllerProvider.notifier).loadAccounts(
+          user.bankbookNumber,
+          user.vbCode ?? '',
+        );
       }
     });
   }
@@ -70,7 +73,10 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                           if (user != null) {
                             ref
                                 .read(accountControllerProvider.notifier)
-                                .loadAccounts(user.id);
+                                .loadAccounts(
+                                  user.bankbookNumber,
+                                  user.vbCode ?? '',
+                                );
                           }
                         },
                         child: Text(s.retry),
@@ -80,54 +86,151 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                 )
               : CustomScrollView(
                   slivers: [
-                    // ── Owner profile card (always first) ──────────────
-                    if (accountState.accountOwner != null)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                          child: _OwnerProfileCard(
-                              owner: accountState.accountOwner!),
-                        ),
-                      ),
-
-                    // ── Section header ──────────────────────────────────
+                    // ── Bankbook info card ──────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                        child: Text(
-                          s.myAccounts,
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade600,
-                                  ),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: _BankbookCard(
+                          bankbookNumber: accountState.bankbookNumber,
+                          vbCode: accountState.vbCode ?? '',
+                          username: accountState.username,
                         ),
                       ),
                     ),
 
-                    // ── Account list ────────────────────────────────────
-                    accountState.accounts.isEmpty
-                        ? SliverFillRemaining(
-                            child: Center(child: Text(s.noAccountsFound)),
+                    // ── Client cards ────────────────────────────────────
+                    if (accountState.accountOwners.isNotEmpty)
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _ClientCard(
+                                  owner: accountState.accountOwners[index]),
+                            ),
+                            childCount: accountState.accountOwners.length,
+                          ),
+                        ),
+                      ),
+
+                    // ── ບັນຊິເງີນຝາກ (Savings) section ─────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.savings_outlined,
+                                size: 18, color: Colors.green.shade700),
+                            const SizedBox(width: 6),
+                            Text(
+                              s.langCode == 'lo'
+                                  ? 'ບັນຊິເງີນຝາກ'
+                                  : 'Savings Accounts',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    accountState.savingsAccounts.isEmpty
+                        ? SliverToBoxAdapter(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: Text(
+                                s.noAccountsFound,
+                                style: TextStyle(color: Colors.grey.shade500),
+                              ),
+                            ),
                           )
                         : SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
                                   final account =
-                                      accountState.accounts[index];
+                                      accountState.savingsAccounts[index];
                                   return _AccountCard(
                                     account: account,
+                                    accentColor: Colors.green.shade700,
                                     onTap: () => context.push(
-                                        '/dashboard',
-                                        extra: {
-                                          'accNumber': account.accNumber,
-                                          'accountType': account.accountType ?? '',
-                                        }),
+                                      '/dashboard',
+                                      extra: {
+                                        'accNumber': account.accNumber,
+                                        'accountType': account.accountType ?? '',
+                                      },
+                                    ),
                                   );
                                 },
-                                childCount: accountState.accounts.length,
+                                childCount: accountState.savingsAccounts.length,
+                              ),
+                            ),
+                          ),
+
+                    // ── ບັນຊີເງີນກູ້ (Loans) section ───────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.account_balance_outlined,
+                                size: 18, color: Colors.orange.shade700),
+                            const SizedBox(width: 6),
+                            Text(
+                              s.langCode == 'lo'
+                                  ? 'ບັນຊີເງີນກູ້'
+                                  : 'Loan Accounts',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    accountState.loanAccounts.isEmpty
+                        ? SliverToBoxAdapter(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Text(
+                                s.noAccountsFound,
+                                style: TextStyle(color: Colors.grey.shade500),
+                              ),
+                            ),
+                          )
+                        : SliverPadding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final account =
+                                      accountState.loanAccounts[index];
+                                  return _AccountCard(
+                                    account: account,
+                                    accentColor: Colors.orange.shade700,
+                                    onTap: () => context.push(
+                                      '/dashboard',
+                                      extra: {
+                                        'accNumber': account.accNumber,
+                                        'accountType': account.accountType ?? '',
+                                      },
+                                    ),
+                                  );
+                                },
+                                childCount: accountState.loanAccounts.length,
                               ),
                             ),
                           ),
@@ -140,10 +243,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
 class _AccountCard extends ConsumerWidget {
   final Account account;
   final VoidCallback onTap;
+  final Color? accentColor;
 
   const _AccountCard({
     required this.account,
     required this.onTap,
+    this.accentColor,
   });
 
   @override
@@ -155,12 +260,23 @@ class _AccountCard extends ConsumerWidget {
       decimalDigits: 0,
     );
 
+    final accent = accentColor ?? Theme.of(context).colorScheme.primary;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: accent, width: 4),
+            ),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              bottomLeft: Radius.circular(12),
+            ),
+          ),
+          child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +289,7 @@ class _AccountCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          account.displayName,
+                          account.accountType ?? '',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -243,34 +359,38 @@ class _AccountCard extends ConsumerWidget {
                   const Icon(Icons.arrow_forward_ios, size: 16),
                 ],
               ),
-              if (account.accountType != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  account.accountType!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
+              // if (account.accountType != null) ...[
+              //   const SizedBox(height: 8),
+              //   Text(
+              //     account.accountType!,
+              //     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              //       color: Colors.grey,
+              //     ),
+              //   ),
+              // ],
             ],
           ),
+        ),
         ),
       ),
     );
   }
 }
 
-class _OwnerProfileCard extends ConsumerWidget {
-  final AccountOwnerInfo owner;
-  const _OwnerProfileCard({required this.owner});
+class _BankbookCard extends ConsumerWidget {
+  final String bankbookNumber;
+  final String vbCode;
+  final String? username;
+
+  const _BankbookCard({
+    required this.bankbookNumber,
+    required this.vbCode,
+    this.username,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(languageProvider);
-    final initial = owner.clientName.isNotEmpty
-        ? owner.clientName[0].toUpperCase()
-        : '?';
-
     return Card(
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Padding(
@@ -278,54 +398,115 @@ class _OwnerProfileCard extends ConsumerWidget {
         child: Row(
           children: [
             CircleAvatar(
-              radius: 28,
+              radius: 24,
               backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(
+                Icons.book_outlined,
+                color: Theme.of(context).colorScheme.onPrimary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _InfoChip(
+                    icon: Icons.book_outlined,
+                    label: s.langCode == 'lo'
+                        ? 'ເລກບັນຊີ: $bankbookNumber'
+                        : 'Bankbook: $bankbookNumber',
+                  ),
+                  const SizedBox(height: 4),
+                  _InfoChip(
+                    icon: Icons.location_on_outlined,
+                    label: s.langCode == 'lo'
+                        ? 'ລະຫັດບ້ານ: $vbCode'
+                        : 'Village Code: $vbCode',
+                  ),
+                  if (username != null && username!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    _InfoChip(
+                      icon: Icons.person_outline,
+                      label: s.langCode == 'lo'
+                          ? 'ຊື່ຜູ້ໃຊ້: $username'
+                          : 'Username: $username',
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientCard extends ConsumerWidget {
+  final AccountOwnerInfo owner;
+  const _ClientCard({required this.owner});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(languageProvider);
+    final fullName = owner.fullName;
+    final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor:
+                  Theme.of(context).colorScheme.secondaryContainer,
               child: Text(
                 initial,
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    owner.clientName,
+                    fullName.isNotEmpty ? fullName : (owner.nickName ?? '-'),
                     style: Theme.of(context)
                         .textTheme
-                        .titleMedium
+                        .titleSmall
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
-                  _InfoChip(
-                    icon: Icons.book_outlined,
-                    label: s.langCode == 'lo'
-                        ? 'ເລກສະໝຸດ: ${owner.bankbookNumber}'
-                        : 'Bankbook: ${owner.bankbookNumber}',
-                  ),
+                  if (owner.nickName != null &&
+                      owner.nickName!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    _InfoChip(
+                      icon: Icons.badge_outlined,
+                      label: s.langCode == 'lo'
+                          ? 'ຊື່ຫຼິ້ນ: ${owner.nickName}'
+                          : 'Nickname: ${owner.nickName}',
+                    ),
+                  ],
                   if (owner.phoneNumber != null &&
                       owner.phoneNumber!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     _InfoChip(
-                      icon: Icons.phone_outlined,
-                      label: owner.phoneNumber!,
-                    ),
+                        icon: Icons.phone_outlined,
+                        label: owner.phoneNumber!),
                   ],
-                  if (owner.gender != null &&
-                      owner.gender!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                  if (owner.gender != null && owner.gender!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
                     _InfoChip(
-                      icon: Icons.person_outline,
-                      label: owner.gender!,
-                    ),
+                        icon: Icons.wc_outlined, label: owner.gender!),
                   ],
                   if (owner.birthDate != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     _InfoChip(
                       icon: Icons.cake_outlined,
                       label:

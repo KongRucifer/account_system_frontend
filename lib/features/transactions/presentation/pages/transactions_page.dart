@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/language_provider.dart';
 import '../../../../core/widgets/lang_toggle_button.dart';
 import '../../data/models/transaction_model.dart';
@@ -21,7 +22,12 @@ class TransactionsPage extends ConsumerStatefulWidget {
 }
 
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
-  final Set<int> _availableYears = {2025, 2024, 2023, 2022, 2021};
+  Set<int> get _availableYears {
+    final currentYear = DateTime.now().year;
+    return Set<int>.from(
+      List.generate(currentYear - 2021 + 1, (i) => currentYear - i),
+    );
+  }
 
   @override
   void initState() {
@@ -199,7 +205,6 @@ class _FilterBar extends ConsumerWidget {
     required this.onTxCodeSelected,
   });
 
-  // ກວດວ່າ account ເປັນ ເງິນກູ້ ຫຼື ເງິນຝາກ
   bool get _isLoan {
     final t = accountType?.toLowerCase() ?? '';
     return t.contains('loan') || t.contains('ກູ');
@@ -208,17 +213,36 @@ class _FilterBar extends ConsumerWidget {
   Map<String, String> get _txOptions {
     if (_isLoan) {
       return {
-        '1011': 'ຊຳລະຕົ້ນທຶນ',
-        '1012': 'ຊຳລະດອກເບ້ຍ',
-        // '1201': 'ປ່ອຍກູ້',
-        // '1010': 'ຊຳລະໜີ້',
+        '1010': 'ຊຳລະຕົ້ນທຶນ',
+        '1001': 'ຊຳລະດອກເບ້ຍ',
+        '1201': 'ປ່ອຍກູ້',
       };
     }
     return {
-      '2201': 'ເງິນຝາກ',
-      '2202': 'ເງິນຖອນ',
-      '2203': 'ເງິນປັບຜົນ',
+      '1006': 'ເງິນຝາກ',
+      '3101': 'ເງິນຖອນ',
+      '6410': 'ເງິນປັບຜົນ',
     };
+  }
+
+  Future<void> _openYearPicker(BuildContext context, AppStrings s, List<int> sortedYears) async {
+    final result = await showModalBottomSheet<int?>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _YearPickerSheet(
+        sortedYears: sortedYears,
+        selectedYear: selectedYear,
+        allYearsLabel: s.allYears,
+      ),
+    );
+    if (result != null && result == -1) {
+      onYearSelected(null);
+    } else if (result != null) {
+      onYearSelected(result);
+    }
   }
 
   @override
@@ -226,11 +250,14 @@ class _FilterBar extends ConsumerWidget {
     final s = ref.watch(languageProvider);
     final sortedYears = availableYears.toList()..sort((a, b) => b.compareTo(a));
     final options = _txOptions;
-    // Reset txCode if it doesn't belong to current account type options
     final effectiveTxCode =
         (selectedTxCode != null && options.containsKey(selectedTxCode))
             ? selectedTxCode
             : null;
+
+    final yearLabel = selectedYear != null
+        ? selectedYear.toString()
+        : s.allYears;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -242,40 +269,39 @@ class _FilterBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // ── Year filter ──
+          // ── Year filter (custom picker) ──
           Icon(Icons.calendar_today_outlined,
               size: 16, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 4),
           Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int?>(
-                value: selectedYear,
-                isExpanded: true,
-                isDense: true,
-                borderRadius: BorderRadius.circular(12),
-                icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                hint: Text(s.filterByYear,
-                    style: const TextStyle(fontSize: 13)),
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(s.allYears,
-                        style: const TextStyle(fontSize: 13)),
-                  ),
-                  ...sortedYears.map((year) => DropdownMenuItem<int?>(
-                        value: year,
-                        child: Text(year.toString(),
-                            style: const TextStyle(fontSize: 13)),
-                      )),
-                ],
-                onChanged: onYearSelected,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _openYearPicker(context, s, sortedYears),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        yearLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: selectedYear != null
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).hintColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down, size: 18),
+                  ],
+                ),
               ),
             ),
           ),
 
           const SizedBox(width: 8),
-          Container(width: 1, height: 28,
-              color: Theme.of(context).dividerColor),
+          Container(width: 1, height: 28, color: Theme.of(context).dividerColor),
           const SizedBox(width: 8),
 
           // ── Type filter ──
@@ -290,24 +316,252 @@ class _FilterBar extends ConsumerWidget {
                 isDense: true,
                 borderRadius: BorderRadius.circular(12),
                 icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                hint: const Text('ທັງໝົດ',
-                    style: TextStyle(fontSize: 13)),
+                hint: const Text('ທັງໝົດ', style: TextStyle(fontSize: 13)),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('ທັງໝົດ',
-                        style: TextStyle(fontSize: 13)),
+                    child: Text('ທັງໝົດ', style: TextStyle(fontSize: 13)),
                   ),
                   ...options.entries.map(
                     (e) => DropdownMenuItem<String?>(
                       value: e.key,
-                      child: Text(e.value,
-                          style: const TextStyle(fontSize: 13)),
+                      child: Text(e.value, style: const TextStyle(fontSize: 13)),
                     ),
                   ),
                 ],
                 onChanged: onTxCodeSelected,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearPickerSheet extends StatefulWidget {
+  final List<int> sortedYears;
+  final int? selectedYear;
+  final String allYearsLabel;
+
+  const _YearPickerSheet({
+    required this.sortedYears,
+    required this.selectedYear,
+    required this.allYearsLabel,
+  });
+
+  @override
+  State<_YearPickerSheet> createState() => _YearPickerSheetState();
+}
+
+class _YearPickerSheetState extends State<_YearPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  List<int> _filtered = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.sortedYears;
+    _searchController.addListener(_onSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearch);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearch() {
+    final query = _searchController.text.trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filtered = widget.sortedYears;
+      } else {
+        _filtered = widget.sortedYears
+            .where((y) => y.toString().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _searchController.text.trim();
+    final manualYear = int.tryParse(query);
+    final canApplyManual = manualYear != null &&
+        manualYear >= 2000 &&
+        manualYear <= DateTime.now().year + 1 &&
+        !widget.sortedYears.contains(manualYear);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'ຄົ້ນຫາ / ພິມປີ (e.g. 2024)',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // ── Reset button ──
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: query.isNotEmpty
+                        ? () => _searchController.clear()
+                        : null,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('ລີເຊັດ', style: TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // ── Search/Apply button ──
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: (manualYear != null &&
+                            manualYear >= 2000 &&
+                            manualYear <= DateTime.now().year + 1)
+                        ? () => Navigator.pop(context, manualYear)
+                        : null,
+                    icon: const Icon(Icons.search, size: 16),
+                    label: const Text('ກົດເພື່ອຄົ້ນຫາ',
+                        style: TextStyle(fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                // ── All years option ──
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.calendar_view_month_outlined,
+                    size: 20,
+                    color: widget.selectedYear == null
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(
+                    widget.allYearsLabel,
+                    style: TextStyle(
+                      fontWeight: widget.selectedYear == null
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: widget.selectedYear == null
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, -1),
+                ),
+                const Divider(height: 1),
+                // ── Manual year apply (if typed a year not in list) ──
+                if (canApplyManual)
+                  ListTile(
+                    dense: true,
+                    leading: Icon(Icons.add_circle_outline,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary),
+                    title: Text(
+                      'ໃຊ້ປີ $manualYear',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onTap: () => Navigator.pop(context, manualYear),
+                  ),
+                // ── Filtered year list ──
+                ..._filtered.map(
+                  (year) => ListTile(
+                    dense: true,
+                    leading: Icon(
+                      Icons.calendar_today_outlined,
+                      size: 18,
+                      color: widget.selectedYear == year
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    title: Text(
+                      year.toString(),
+                      style: TextStyle(
+                        fontWeight: widget.selectedYear == year
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: widget.selectedYear == year
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                    trailing: widget.selectedYear == year
+                        ? Icon(Icons.check,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () => Navigator.pop(context, year),
+                  ),
+                ),
+                if (_filtered.isEmpty && !canApplyManual)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'ບໍ່ພົບປີ',
+                      style: TextStyle(color: Colors.grey.shade500),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
         ],
@@ -337,31 +591,31 @@ class _TransactionCard extends ConsumerWidget {
     final String badgeLabel;
 
     switch (code) {
-      case '2201':
+      case '1006':
         badgeBg     = Colors.green.shade100;
         badgeFg     = Colors.green.shade800;
         amountColor = Colors.green.shade700;
         badgeLabel  = 'ເງິນຝາກ';
         break;
-      case '2202':
+      case '3101':
         badgeBg     = Colors.red.shade100;
         badgeFg     = Colors.red.shade800;
         amountColor = Colors.red.shade700;
         badgeLabel  = 'ເງິນຖອນ';
         break;
-      case '2203':
+      case '6410':
         badgeBg     = Colors.blue.shade100;
         badgeFg     = Colors.blue.shade800;
         amountColor = Colors.blue.shade700;
         badgeLabel  = 'ເງິນປັບຜົນ';
         break;
-      case '1011':
+      case '1010':
         badgeBg     = Colors.green.shade100;
         badgeFg     = Colors.green.shade800;
         amountColor = Colors.green.shade700;
         badgeLabel  = 'ຊຳລະຕົ້ນທຶນ';
         break;
-      case '1012':
+      case '1001':
         badgeBg     = Colors.orange.shade100;
         badgeFg     = Colors.orange.shade800;
         amountColor = Colors.orange.shade700;
@@ -373,12 +627,7 @@ class _TransactionCard extends ConsumerWidget {
         amountColor = Colors.green.shade700;
         badgeLabel  = 'ປ່ອຍກູ້';
         break;
-      case '1010':
-        badgeBg     = Colors.orange.shade100;
-        badgeFg     = Colors.orange.shade800;
-        amountColor = Colors.orange.shade700;
-        badgeLabel  = 'ຊຳລະໜີ້';
-        break;
+     
       default:
         badgeBg     = Colors.grey.shade200;
         badgeFg     = Colors.grey.shade700;

@@ -64,20 +64,22 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> register({
     required String bankbookNumber,
+    required String vbCode,
+    required String username,
+    required String phoneNumber,
     required String password,
     required String confirmPassword,
-    required String phoneNumber,
-    required String vbCode,
   }) async {
     try {
       final response = await _dio.post(
         ApiConstants.register,
         data: {
           'bankbookNumber': bankbookNumber,
+          'vbCode': vbCode,
+          'username': username,
+          'phoneNumber': phoneNumber,
           'password': password,
           'confirmPassword': confirmPassword,
-          'phoneNumber': phoneNumber,
-          'vbCode': vbCode,
         },
       );
       

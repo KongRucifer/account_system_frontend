@@ -21,11 +21,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _obscurePassword = true;
 
   String _getTranslatedError(String error, AppStrings s) {
-    if (error.contains('bank book number is incorrect')) {
-      return s.bankbookIncorrect;
+    if (error.toLowerCase().contains('username is incorrect')) {
+      return s.usernameIncorrect;
     }
-    if (error.contains('password is incorrect')) {
+    if (error.toLowerCase().contains('password is incorrect')) {
       return s.passwordIncorrect;
+    }
+    if (error.toLowerCase().contains('cannot connect') || error.toLowerCase().contains('connection')) {
+      return s.langCode == 'lo' ? 'ບໍ່ສາມາດເຊື່ອມຕໍ່ server ໄດ້. ກວດສອບການເຊື່ອມຕໍ່ຂອງທ່ານ.' : 'Cannot connect to server. Please check your connection.';
     }
     if (error == 'Login failed') {
       return s.loginFailed;
@@ -195,10 +198,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   // Bankbook Number Field
                   TextFormField(
                     controller: _userNameController,
-                    keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: s.username,
-                      prefixIcon: const Icon(Icons.book_outlined),
+                      prefixIcon: const Icon(Icons.person_outline),
                       border: const OutlineInputBorder(),
                     ),
                     validator: (value) {
