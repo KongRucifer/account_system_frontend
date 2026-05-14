@@ -2,7 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiConstants {
   static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000/api/v1';
+      dotenv.env['API_BASE_URL'] ?? 'http://183.182.104.202:8080/api/v1';
   
   // Auth
   static const String login = '/auth/login';
