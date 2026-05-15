@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/language_provider.dart';
 import '../../../../core/widgets/lang_toggle_button.dart';
+import '../../../notifications/notification_badge.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/models/account_model.dart';
 import '../controllers/account_controller.dart';
@@ -47,6 +48,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
           fit: BoxFit.contain,
         ),
         actions: [
+          const NotificationBadge(),
           const LangToggleButton(),
           const SizedBox(width: 4),
           IconButton(
@@ -289,7 +291,9 @@ class _AccountCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          account.accountType ?? '',
+                          s.langCode == 'lo'
+                              ? (account.accNameLao ?? account.accNameEng ?? '')
+                              : (account.accNameEng ?? account.accNameLao ?? ''),
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),

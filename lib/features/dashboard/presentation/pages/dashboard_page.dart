@@ -211,6 +211,7 @@ class _LoanCard extends ConsumerWidget {
               valueColor: Colors.red,
             ),
             _InfoRow(s.interestDue, currencyFormat.format(loan.interestDue)),
+            _InfoRow(s.interestUnpaid, currencyFormat.format(loan.interestUnpaid)),
             _InfoRow(s.interestRate, '${loan.interestRate}%'),
             _InfoRow(s.loanPeriod, '${loan.loanPeriodMonths} ${s.months}'),
             if (loan.repaymentType != null)

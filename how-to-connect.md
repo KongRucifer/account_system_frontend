@@ -22,3 +22,6 @@ netstat -ano | findstr "LISTENING" | findstr ":4000\|:3000"
 
 powershell
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:4000 tcp:4000
+
+
+adb uninstall com.example.frontend_account_system; flutter clean; flutter run

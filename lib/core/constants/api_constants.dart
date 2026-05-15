@@ -10,6 +10,7 @@ class ApiConstants {
   static const String logout = '/auth/logout';
   static const String register = '/auth/register';
   static const String resetPassword = '/auth/reset-password';
+  static const String updateFcmToken = '/notifications/fcm-token';
   
   // Accounts
   static const String accounts = '/accounts';

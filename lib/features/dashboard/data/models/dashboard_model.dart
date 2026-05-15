@@ -77,6 +77,7 @@ class LoanInfo {
   final double totalLoanAmount;
   final double loanOutstanding;
   final double interestDue;
+  final double interestUnpaid;
   final double principalDue;
   final double principalPaid;
   final DateTime startDate;
@@ -91,6 +92,7 @@ class LoanInfo {
     required this.totalLoanAmount,
     required this.loanOutstanding,
     required this.interestDue,
+    required this.interestUnpaid,
     required this.principalDue,
     required this.principalPaid,
     required this.startDate,
@@ -110,6 +112,8 @@ class LoanInfo {
           ? (json['loanOutstanding'] as num).toDouble() : 0.0,
       interestDue: json['interestDue'] != null
           ? (json['interestDue'] as num).toDouble() : 0.0,
+      interestUnpaid: json['interestUnpaid'] != null
+          ? (json['interestUnpaid'] as num).toDouble() : 0.0,
       principalDue: json['principalDue'] != null
           ? (json['principalDue'] as num).toDouble() : 0.0,
       principalPaid: json['principalPaid'] != null

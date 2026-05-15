@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "351785621643",
+    "project_id": "lanxangaap",
+    "storage_bucket": "lanxangaap.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351785621643:android:ed6db39c8d47c5a4a41c8e",
+        "android_client_info": {
+          "package_name": "com.example.frontend_account_system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM46xhb0oCO34RoRR-BGlFVRuwLryxwfc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

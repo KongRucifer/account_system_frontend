@@ -49,10 +49,12 @@ class User {
   final String? refreshToken;
   final int? expiresIn;
   final DateTime? expiresAt;
+  final String username; // Actual username for FCM token registration
   final List<ClientInfo> clients;
 
   User({
     required this.bankbookNumber,
+    required this.username,
     this.vbCode,
     this.accessToken,
     this.refreshToken,
@@ -76,6 +78,7 @@ class User {
 
     return User(
       bankbookNumber: firstClient?['bankbookNumber'] as String? ?? '',
+      username: json['username'] as String? ?? firstClient?['bankbookNumber'] as String? ?? '',
       vbCode: firstClient?['vbCode'] as String?,
       accessToken: json['accessToken'] as String?,
       refreshToken: json['refreshToken'] as String?,
@@ -93,6 +96,7 @@ class User {
 
     return User(
       bankbookNumber: json['bankbookNumber'] as String? ?? '',
+      username: json['username'] as String? ?? json['bankbookNumber'] as String? ?? '',
       vbCode: json['vbCode'] as String?,
       accessToken: json['accessToken'] as String?,
       refreshToken: json['refreshToken'] as String?,
@@ -107,6 +111,7 @@ class User {
   Map<String, dynamic> toJson() {
     return {
       'bankbookNumber': bankbookNumber,
+      'username': username,
       'vbCode': vbCode,
       'accessToken': accessToken,
       'refreshToken': refreshToken,

@@ -86,7 +86,7 @@ class AppStrings {
   String get accountNumber => _s('Account Number', 'ເລກບັນຊີ');
   String get accountType => _s('Account Type', 'ປະເພດບັນຊີ');
   String get currentBalance => _s('Current Balance', 'ຍອດເງິນປັດຈຸບັນ');
-  String get branch => _s('Branch', 'ສາຂາ');
+  String get branch => _s('Village', 'ບ້ານ');
   String get status => _s('Status', 'ສະຖານະ');
   String get openingDate => _s('Opening Date', 'ວັນທີເປີດ');
   String get noAccountsFound => _s('No accounts found', 'ບໍ່ພົບບັນຊີ');
@@ -116,7 +116,8 @@ class AppStrings {
   String get months => _s('months', 'ເດືອນ');
   String get repaymentType => _s('Repayment Type', 'ປະເພດຊຳລະ');
   String get totalLoan => _s('Total Loan Amount', 'ຍອດເງິນກູ້');
-  String get interestDue => _s('Interest Due', 'ດອກເບ້ຍຄ້າງຊຳລະ');
+  String get interestDue => _s('Interest Due', 'ດອກເບ້ຍຕ້ອງຊຳລະ');
+  String get interestUnpaid => _s('Interest Unpaid', 'ດອກເບ້ຍຄ້າງຊຳລະ');
   String get interestPaid => _s('Interest Paid', 'ດອກເບ້ຍຊຳລະແລ້ວ');
   String get viewTransactions => _s('View Transaction History', 'ເບິ່ງປະຫວັດການທຳທຸລະກຳ');
 
