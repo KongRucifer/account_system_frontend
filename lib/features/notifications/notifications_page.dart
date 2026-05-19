@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'notification_provider.dart';
+import '../../core/providers/language_provider.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -97,7 +98,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                       },
                       icon: const Icon(Icons.done_all),
                       label: Text(
-                        'ອ່ານເເລ້ວ (${state.unreadCount})', // Mark all as read (count)
+                        '${ref.watch(languageProvider).markAllAsReadButton} (${state.unreadCount})',
                         style: const TextStyle(fontSize: 16),
                       ),
                       style: ElevatedButton.styleFrom(

@@ -10,84 +10,28 @@ class NotificationSoundService {
   bool _isPlaying = false;
   String? _currentNotificationId;
 
-  /// เริ่มเล่นเสียงแจ้งเตือนแบบวนลูป
+  /// เสียงแจ้งเตือนใช้ Android Notification Channel แทน (res/raw/meeting_sound.wav)
+  /// method นี้คงไว้เพื่อ compatibility กับ notification_provider.dart
   Future<void> playNotificationSound(String notificationId) async {
-    try {
-      // ถ้ากำลังเล่นอยู่แล้วสำหรับ notification เดียวกัน ไม่ต้องเล่นซ้ำ
-      if (_isPlaying && _currentNotificationId == notificationId) {
-        debugPrint('🔊 Sound already playing for: $notificationId');
-        return;
-      }
-
-      // หยุดเสียงเก่าก่อน
-      if (_isPlaying) {
-        await _audioPlayer.stop();
-      }
-
-      _currentNotificationId = notificationId;
-      _isPlaying = true;
-
-      // ตั้งค่าให้เล่นวนลูป
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      
-      // เล่นเสียงแจ้งเตือน (ใช้ระบบเสียงของ Android/iOS)
-      // สามารถเปลี่ยนเป็นไฟล์เสียงที่กำหนดเองได้
-      debugPrint('🔊 Starting loop sound for: $notificationId');
-      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
-      
-      debugPrint('🔊 Playing notification sound for: $notificationId (LOOPING)');
-    } catch (e) {
-      debugPrint('❌ Error playing notification sound: $e');
-      // Fallback: เล่นเสียงระบบถ้าไม่มีไฟล์
-      await _playSystemSound();
-    }
+    debugPrint('🔊 Sound handled by Android Notification Channel');
   }
 
-  /// หยุดเล่นเสียงแจ้งเตือน
+  /// หยุดเสียง (no-op เพราะเสียงจัดการโดย OS notification channel)
   Future<void> stopNotificationSound() async {
-    try {
-      if (_isPlaying) {
-        await _audioPlayer.stop();
-        _isPlaying = false;
-        _currentNotificationId = null;
-        debugPrint('🔇 Stopped notification sound');
-      }
-    } catch (e) {
-      debugPrint('❌ Error stopping notification sound: $e');
-    }
+    _isPlaying = false;
+    _currentNotificationId = null;
+    debugPrint('🔇 stopNotificationSound called (no-op)');
   }
 
-  /// เล่นเสียงสั้นๆ ครั้งเดียว (สำหรับกรณีที่ไม่ต้องการวนลูป)
+  /// no-op — เสียงจัดการโดย OS notification channel
   Future<void> playShortNotificationSound() async {
-    try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
-      debugPrint('🔊 Played short notification sound');
-    } catch (e) {
-      debugPrint('❌ Error playing short sound: $e');
-      await _playSystemSound();
-    }
+    debugPrint('🔊 playShortNotificationSound called (no-op)');
   }
 
-  /// เล่นเสียงเมื่อ mark as read (เสียงสั้นๆ ยืนยัน)
+  /// หยุดเสียงเมื่อ mark as read (ไม่เล่นเสียงเพิ่ม)
   Future<void> playSuccessSound() async {
-    try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
-      debugPrint('🔊 Played success sound');
-    } catch (e) {
-      debugPrint('❌ Error playing success sound: $e');
-    }
-  }
-
-  /// Fallback: เล่นเสียงระบบ
-  Future<void> _playSystemSound() async {
-    try {
-      // ใช้เสียง default ของระบบ
-      await _audioPlayer.play(UrlSource('system_sound'));
-    } catch (e) {
-      debugPrint('❌ Cannot play system sound: $e');
-    }
+    await stopNotificationSound();
+    debugPrint('� Sound stopped on mark-as-read');
   }
 
   /// ตรวจสอบว่ากำลังเล่นเสียงอยู่หรือไม่

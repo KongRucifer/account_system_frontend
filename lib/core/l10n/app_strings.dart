@@ -121,6 +121,9 @@ class AppStrings {
   String get interestPaid => _s('Interest Paid', 'ດອກເບ້ຍຊຳລະແລ້ວ');
   String get viewTransactions => _s('View Transaction History', 'ເບິ່ງປະຫວັດການທຳທຸລະກຳ');
 
+  // ─── Notifications ─────────────────────────────────────────
+  String get markAllAsReadButton => _s('If read, please click here', 'ຖ້າອ່ານເເລ້ວກາລຸນາກົດທີ່ນີ້');
+
   // ─── Transactions ──────────────────────────────────────────
   String get transactionHistory => _s('Transaction History', 'ປະຫວັດລາຍການ');
   String get filterByYear => _s('Filter by Year', 'ກັ່ນຕອງຕາມປີ');

@@ -44,7 +44,7 @@
         <!-- Default FCM channel: ensures OS-level notifications use our sound channel -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="meeting_notifications_v4" />
+            android:value="meeting_notifications_v5" />
         <!-- Ensure FCM auto-init is enabled in release builds -->
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"

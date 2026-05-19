@@ -10,6 +10,7 @@ import 'notification_model.dart';
 import 'notification_repository.dart';
 import 'notification_service.dart';
 import 'notification_sound_service.dart';
+import '../../../../core/services/firebase_messaging_service.dart';
 
 part 'notification_provider.freezed.dart';
 
@@ -295,13 +296,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       // Update local state
       _handleNotificationRead({'notificationId': notificationId});
 
-      // 🔇 หยุดเสียงถ้ากำลังเล่นอยู่สำหรับ notification นี้
-      if (_soundService.currentNotificationId == notificationId) {
-        await _soundService.stopNotificationSound();
-      }
-      
-      // 🔊 เล่นเสียงสำเร็จสั้นๆ
-      await _soundService.playSuccessSound();
+      // 🔇 หยุด repeating notification
+      await LocalNotificationService.cancelRepeating();
+      await _soundService.stopNotificationSound();
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     }
@@ -338,12 +335,10 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         unreadCount: 0,
       ));
 
-      // 🔇 Stop all sounds when all notifications are marked as read
+      // 🔇 หยุด repeating notification
+      await LocalNotificationService.cancelRepeating();
       await _soundService.stopNotificationSound();
-      debugPrint('🔇 Stopped notification sound - all notifications marked as read');
-      
-      // 🔊 Play success sound
-      await _soundService.playSuccessSound();
+      debugPrint('🔇 Cancelled repeating notification - all read');
       
       debugPrint('✅ Marked $count notifications as read');
     } catch (e) {

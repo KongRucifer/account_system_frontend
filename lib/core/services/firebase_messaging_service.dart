@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../../features/notifications/notification_sound_service.dart';
 import '../../firebase_options.dart';
 
 // Must be a top-level function with @pragma so R8 does not strip it in release builds
@@ -163,8 +163,8 @@ class LocalNotificationService {
   static FlutterLocalNotificationsPlugin get notificationsPlugin => _notificationsPlugin;
 
   static bool _initialized = false;
-  static bool _isBackgroundIsolate = false;
-
+  static Timer? _repeatTimer;
+  static int _sessionToken = 0;
   /// Initialize local notifications
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -192,7 +192,7 @@ class LocalNotificationService {
     // Create notification channel for Android
     // Channel ID bumped to v4 to force recreation with meeting_sound.wav
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'meeting_notifications_v4',
+      'meeting_notifications_v5',
       'Meeting Notifications',
       description: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -228,7 +228,7 @@ class LocalNotificationService {
 
     // Channel ID bumped to v4 to force recreation with meeting_sound.wav
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'meeting_notifications_v4',
+      'meeting_notifications_v5',
       'Meeting Notifications',
       description: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -241,14 +241,13 @@ class LocalNotificationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    _isBackgroundIsolate = true;
     _initialized = true;
   }
 
-  /// Show notification
+  /// Show notification and repeat every 5s until cancelRepeating() is called
   static Future<void> showNotification(RemoteMessage message) async {
     debugPrint('🔔 showNotification called');
-    
+
     if (!_initialized) {
       debugPrint('🔔 Initializing local notifications (background-safe)...');
       await initializeForBackground();
@@ -257,16 +256,14 @@ class LocalNotificationService {
     final notification = message.notification;
     final data = message.data;
 
-    // data-only messages (terminated state): title/body are in data field
     final title = notification?.title ?? data['title'] ?? 'ແຈ້ງເຕືອນ';
     final body = notification?.body ?? data['body'] ?? 'ມີການແຈ້ງເຕືອນໃໝ່';
-    
+
     debugPrint('🔔 Notification title: $title');
     debugPrint('🔔 Notification body: $body');
-    debugPrint('🔔 Notification data: $data');
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'meeting_notifications_v4',
+      'meeting_notifications_v5',
       'Meeting Notifications',
       channelDescription: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -289,31 +286,62 @@ class LocalNotificationService {
       iOS: iosDetails,
     );
 
-    debugPrint('🔔 About to show notification with ID: ${message.hashCode}');
-    
-    try {
-      await _notificationsPlugin.show(
-        message.hashCode, // notification id
-        title,
-        body,
-        details,
-        payload: jsonEncode(data),
-      );
-      debugPrint('🔔 Notification shown successfully!');
-      
-      // 🔊 Play sound - use notification sound via platform channel
-      final notificationId = data['notificationId'] ?? message.hashCode.toString();
-      if (_isBackgroundIsolate) {
-        // Background: use system sound via notification channel (sound is baked into AndroidNotificationDetails)
-        debugPrint('🔊 Sound will play via notification channel in background');
-      } else {
-        // Foreground: use custom sound loop
-        NotificationSoundService().playNotificationSound(notificationId);
-        debugPrint('🔊 Started loop sound for notification: $notificationId');
+    // Cancel any running timer immediately — invalidate old session
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    await _notificationsPlugin.cancelAll();
+
+    // Create a unique session token for this notification
+    _sessionToken++;
+    final myToken = _sessionToken;
+
+    // A/B alternating IDs force Android to treat each repeat as NEW — required for sound
+    final baseId = message.hashCode.abs() % 100000;
+    final idA = baseId;
+    final idB = baseId + 100000;
+    int localToggle = 0;
+
+    Future<void> showOnce() async {
+      final currentId = localToggle.isEven ? idA : idB;
+      final previousId = localToggle.isEven ? idB : idA;
+      localToggle++;
+      try {
+        await _notificationsPlugin.cancel(previousId);
+        await _notificationsPlugin.show(
+          currentId,
+          title,
+          body,
+          details,
+          payload: jsonEncode(data),
+        );
+        debugPrint('🔔 Notification shown (id: $currentId)');
+      } catch (e) {
+        debugPrint('🔔 ERROR showing notification: $e');
       }
-    } catch (e) {
-      debugPrint('🔔 ERROR showing notification: $e');
     }
+
+    // Show immediately
+    await showOnce();
+
+    // Repeat every 5 seconds — stop if session token changed (cancelled or new notification)
+    _repeatTimer = Timer.periodic(const Duration(seconds: 5), (t) async {
+      if (_sessionToken != myToken) {
+        t.cancel();
+        return;
+      }
+      await showOnce();
+    });
+
+    debugPrint('🔁 Started repeat notification timer (session: $myToken, A/B: $idA/$idB)');
+  }
+
+  /// Cancel repeating notification — call this when user reads the notification
+  static Future<void> cancelRepeating() async {
+    _sessionToken++; // invalidate any running timer session immediately
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    await _notificationsPlugin.cancelAll();
+    debugPrint('🔇 Cancelled repeating notification (all cleared)');
   }
 
 
