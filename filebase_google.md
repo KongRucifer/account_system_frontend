@@ -1,0 +1,1 @@
+ຂໍ້ຄວນລະວັງ (Play App Signing): ຖ້າເຈົ້າເອົາແອັບຂຶ້ນ Google Play Store ແລ້ວເລືອກໃຊ້ Google Play App Signing, ຄ່າ SHA-1 ຕອນ Release ຈະປ່ຽນໄປເປັນຄ່າທີ່ Google ເປັນຄົນເຈນໃຫ້. ເຈົ້າຕ້ອງໄປກັອບປີ້ SHA-1 ຈາກ Google Play Console -> Setup -> App Integrity ແລ້ວເອົາມາໃສ່ໃນ Firebase ນຳ."

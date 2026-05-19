@@ -6,6 +6,10 @@ class StorageService {
   static const String _refreshTokenKey = 'refresh_token';
   static const String _userKey = 'user_data';
   
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() => _instance;
+  StorageService._internal();
+  
   SharedPreferences? _prefs;
 
   Future<void> init() async {
@@ -45,9 +49,13 @@ class StorageService {
 
   Future<Map<String, dynamic>?> getUser() async {
     final userStr = _prefs?.getString(_userKey);
+    print('🔍 StorageService: userStr = $userStr');
     if (userStr != null) {
-      return jsonDecode(userStr) as Map<String, dynamic>;
+      final userData = jsonDecode(userStr) as Map<String, dynamic>;
+      print('🔍 StorageService: userData = $userData');
+      return userData;
     }
+    print('🔍 StorageService: No user data found');
     return null;
   }
 

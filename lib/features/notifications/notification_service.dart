@@ -36,19 +36,19 @@ class NotificationWebSocketService {
       }
 
       final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000';
-      final wsUrl = baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-
-      debugPrint('Connecting to WebSocket: $wsUrl/notifications');
+      // Keep HTTP URL for Socket.IO, it will handle WebSocket upgrade automatically
+      debugPrint('Connecting to WebSocket: $baseUrl/notifications');
 
       _socket = IO.io(
-        '$wsUrl/notifications',
+        '$baseUrl/notifications',
         IO.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling']) // Allow fallback to polling
           .setAuth({'token': token})
           .setReconnectionAttempts(5)
           .setReconnectionDelay(1000)
           .setReconnectionDelayMax(5000)
-          .setTimeout(5000)
+          .setTimeout(10000) // Increase timeout
+          .enableAutoConnect()
           .build(),
       );
 
@@ -73,7 +73,7 @@ class NotificationWebSocketService {
       debugPrint('📨 New notification received: $data');
       _notificationController.add({
         'type': 'new_notification',
-        'data': data,
+        'data': data['data'] ?? data, // Handle both formats
       });
     });
 
@@ -81,6 +81,14 @@ class NotificationWebSocketService {
       debugPrint('✓ Notification marked as read: $data');
       _notificationController.add({
         'type': 'notification_read',
+        'data': data,
+      });
+    });
+
+    _socket?.on('all_notifications_read', (data) {
+      debugPrint('✓ All notifications marked as read: $data');
+      _notificationController.add({
+        'type': 'all_notifications_read',
         'data': data,
       });
     });

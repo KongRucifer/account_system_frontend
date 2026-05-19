@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/providers/core_providers.dart';
-import '../../core/services/storage_service.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../../../core/services/storage_service.dart';
+import '../../../../core/providers/core_providers.dart';
 import 'notification_model.dart';
 import 'notification_repository.dart';
 import 'notification_service.dart';
 import 'notification_sound_service.dart';
+
+part 'notification_provider.freezed.dart';
 
 // Repository Provider
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
@@ -17,6 +22,11 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 // WebSocket Service Provider
 final webSocketServiceProvider = Provider<NotificationWebSocketService>((ref) {
   return NotificationWebSocketService();
+});
+
+// Sound Service Provider
+final soundServiceProvider = Provider<NotificationSoundService>((ref) {
+  return NotificationSoundService();
 });
 
 // Current username provider
@@ -30,39 +40,22 @@ final notificationsProvider = StateNotifierProvider<NotificationsNotifier, Async
   return NotificationsNotifier(
     repository: ref.watch(notificationRepositoryProvider),
     webSocketService: ref.watch(webSocketServiceProvider),
+    soundService: ref.watch(soundServiceProvider),
   );
 });
 
-class NotificationState {
-  final List<MeetingNotification> notifications;
-  final int unreadCount;
-  final bool isLoading;
-  final String? error;
-  final bool isWebSocketConnected;
-
-  const NotificationState({
-    this.notifications = const [],
-    this.unreadCount = 0,
-    this.isLoading = false,
-    this.error,
-    this.isWebSocketConnected = false,
-  });
-
-  NotificationState copyWith({
-    List<MeetingNotification>? notifications,
-    int? unreadCount,
-    bool? isLoading,
+// Notification State
+@freezed
+class NotificationState with _$NotificationState {
+  const factory NotificationState({
+    @Default([]) List<MeetingNotification> notifications,
+    @Default(0) int unreadCount,
+    @Default(false) bool isLoading,
+    @Default(false) bool isWebSocketConnected,
     String? error,
-    bool? isWebSocketConnected,
-  }) {
-    return NotificationState(
-      notifications: notifications ?? this.notifications,
-      unreadCount: unreadCount ?? this.unreadCount,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-      isWebSocketConnected: isWebSocketConnected ?? this.isWebSocketConnected,
-    );
-  }
+    PaginationInfo? pagination,
+    @Default(1) int currentPage,
+  }) = _NotificationState;
 }
 
 class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>> {
@@ -90,16 +83,27 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       final userData = await StorageService().getUser();
       _username = userData?['username'] as String?;
       
+      debugPrint('🔔 NotificationProvider: userData = $userData');
+      debugPrint('🔔 NotificationProvider: _username = $_username');
+      
       if (_username == null) {
         // ยังไม่ login - แสดง state ว่าง ไม่ใช่ error
+        debugPrint('❌ NotificationProvider: username is null, user not logged in');
         state = const AsyncValue.data(NotificationState(
           notifications: [],
           unreadCount: 0,
           isLoading: false,
         ));
+        
+        // Retry after 1 second in case user just logged in (faster retry)
+        Future.delayed(const Duration(seconds: 1), () {
+          debugPrint('🔄 NotificationProvider: Retrying to get user data...');
+          _initialize();
+        });
         return;
       }
 
+      debugPrint('✅ NotificationProvider: username = $_username, loading notifications');
       // Load initial notifications
       await loadNotifications();
 
@@ -109,6 +113,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       // Start polling as fallback
       _startPolling();
     } catch (e, stack) {
+      debugPrint('❌ NotificationProvider initialization error: $e');
       state = AsyncValue.error(e, stack);
     }
   }
@@ -122,6 +127,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         _handleNewNotification(event['data']);
       } else if (event['type'] == 'notification_read') {
         _handleNotificationRead(event['data']);
+      } else if (event['type'] == 'all_notifications_read') {
+        _handleAllNotificationsRead(event['data']);
       }
     });
 
@@ -134,27 +141,47 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
-      final notificationData = data['data'] as Map<String, dynamic>;
+      debugPrint('🔔 Handling new notification: $data');
+      
       final notification = MeetingNotification(
-        id: notificationData['id'] ?? '',
-        notificationId: notificationData['notificationId'] ?? '',
-        message: notificationData['message'] ?? '',
-        meetingDate: notificationData['meetingDate'] ?? '',
-        vbCode: notificationData['vbCode'] ?? '',
+        id: data['id'] ?? '',
+        notificationId: data['notificationId'] ?? '',
+        message: data['message'] ?? '',
+        meetingDate: data['meetingDate'] ?? '',
+        vbCode: data['vbCode'] ?? '',
         isRead: false,
-        createdAt: DateTime.parse(notificationData['createdAt'] ?? DateTime.now().toIso8601String()),
+        createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
       );
 
       final currentState = state.value ?? const NotificationState();
-      final updatedNotifications = [notification, ...currentState.notifications];
       
+      // Check if notification already exists to avoid duplicates
+      if (currentState.notifications.any((n) => n.id == notification.id)) {
+        debugPrint('🔔 Notification already exists, skipping');
+        return;
+      }
+      
+      final updatedNotifications = [notification, ...currentState.notifications];
+      final newUnreadCount = currentState.unreadCount + 1;
+      
+      // Immediate state update for count
       state = AsyncValue.data(currentState.copyWith(
         notifications: updatedNotifications,
-        unreadCount: currentState.unreadCount + 1,
+        unreadCount: newUnreadCount,
       ));
 
-      // 🔊 เล่นเสียงแจ้งเตือน
+      debugPrint('🔔 Added new notification, unread count: $newUnreadCount');
+
+      // 🔊 Play loop sound for new notification
       _soundService.playNotificationSound(notification.id);
+      
+      // Force UI update by ensuring state is set immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // Trigger a rebuild to ensure count updates immediately
+          state = AsyncValue.data(state.value!);
+        }
+      });
     } catch (e) {
       debugPrint('Error handling new notification: $e');
     }
@@ -166,18 +193,51 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
-      if (n.id == notificationId) {
-        return n.copyWith(isRead: true, readAt: DateTime.now());
-      }
-      return n;
+      return n.id == notificationId 
+          ? n.copyWith(isRead: true, readAt: DateTime.now())
+          : n;
     }).toList();
 
     final newUnreadCount = updatedNotifications.where((n) => !n.isRead).length;
 
+    debugPrint('🔔 Notification read: $notificationId, new unread count: $newUnreadCount');
+
+    // Immediate state update
     state = AsyncValue.data(currentState.copyWith(
       notifications: updatedNotifications,
       unreadCount: newUnreadCount,
     ));
+
+    // 🔇 Stop sound if all notifications are read
+    if (newUnreadCount == 0) {
+      _soundService.stopNotificationSound();
+      debugPrint('🔇 Stopped notification sound - all notifications read');
+    }
+    
+    // Force UI update to ensure count updates immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        state = AsyncValue.data(state.value!);
+      }
+    });
+  }
+
+  void _handleAllNotificationsRead(Map<String, dynamic> data) {
+    final currentState = state.value ?? const NotificationState();
+    final updatedNotifications = currentState.notifications.map((n) => 
+      n.copyWith(isRead: true, readAt: DateTime.now())
+    ).toList();
+
+    debugPrint('🔔 All notifications marked as read via WebSocket');
+
+    state = AsyncValue.data(currentState.copyWith(
+      notifications: updatedNotifications,
+      unreadCount: 0,
+    ));
+
+    // 🔇 Stop all sounds
+    _soundService.stopNotificationSound();
+    debugPrint('🔇 Stopped notification sound - all notifications read via WebSocket');
   }
 
   void _startPolling() {
@@ -189,21 +249,31 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     });
   }
 
-  Future<void> loadNotifications() async {
-    if (_username == null) return;
+  Future<void> loadNotifications({int page = 1}) async {
+    if (_username == null) {
+      debugPrint('❌ loadNotifications: username is null');
+      return;
+    }
 
     try {
+      debugPrint('🔔 loadNotifications: loading for $_username, page $page');
       final currentState = state.value ?? const NotificationState();
       state = AsyncValue.data(currentState.copyWith(isLoading: true));
 
-      final response = await _repository.getAllNotifications(_username!);
+      final response = await _repository.getAllNotifications(_username!, page: page);
+      
+      debugPrint('🔔 loadNotifications: got ${response.notifications.length} notifications');
+      debugPrint('🔔 loadNotifications: unread count: ${response.unreadCount}');
 
       state = AsyncValue.data(currentState.copyWith(
         notifications: response.notifications,
         unreadCount: response.unreadCount,
+        pagination: response.pagination,
+        currentPage: page,
         isLoading: false,
       ));
     } catch (e) {
+      debugPrint('❌ loadNotifications error: $e');
       final currentState = state.value ?? const NotificationState();
       state = AsyncValue.data(currentState.copyWith(
         error: e.toString(),
@@ -238,7 +308,59 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> refresh() async {
+    // Try to get username again in case it was null before
+    final userData = await StorageService().getUser();
+    final newUsername = userData?['username'] as String?;
+    
+    if (newUsername != null && newUsername != _username) {
+      debugPrint('🔄 NotificationProvider: Got new username $newUsername, updating...');
+      _username = newUsername;
+    }
+    
     await loadNotifications();
+  }
+
+  Future<void> markAllAsRead() async {
+    if (_username == null) return;
+
+    try {
+      debugPrint('🔔 Marking all notifications as read for $_username');
+      
+      // Update API
+      final count = await _repository.markAllAsRead(_username!);
+      
+      // Update local state
+      final currentState = state.value ?? const NotificationState();
+      final updatedNotifications = currentState.notifications.map((n) => n.copyWith(isRead: true, readAt: DateTime.now())).toList();
+      
+      state = AsyncValue.data(currentState.copyWith(
+        notifications: updatedNotifications,
+        unreadCount: 0,
+      ));
+
+      // 🔇 Stop all sounds when all notifications are marked as read
+      await _soundService.stopNotificationSound();
+      debugPrint('🔇 Stopped notification sound - all notifications marked as read');
+      
+      // 🔊 Play success sound
+      await _soundService.playSuccessSound();
+      
+      debugPrint('✅ Marked $count notifications as read');
+    } catch (e) {
+      debugPrint('❌ Error marking all notifications as read: $e');
+    }
+  }
+
+  Future<void> loadNextPage() async {
+    // Pagination functionality temporarily removed due to state structure changes
+    // This can be re-implemented when pagination is added back to NotificationState
+    debugPrint('📄 Next page functionality temporarily disabled');
+  }
+
+  Future<void> loadPreviousPage() async {
+    // Pagination functionality temporarily removed due to state structure changes
+    // This can be re-implemented when pagination is added back to NotificationState
+    debugPrint('📄 Previous page functionality temporarily disabled');
   }
 
   /// Refresh after login - reinitialize with new username

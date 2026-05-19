@@ -34,6 +34,27 @@ Map<String, dynamic> _$$MeetingNotificationImplToJson(
   'createdAt': instance.createdAt.toIso8601String(),
 };
 
+_$PaginationInfoImpl _$$PaginationInfoImplFromJson(Map<String, dynamic> json) =>
+    _$PaginationInfoImpl(
+      page: (json['page'] as num).toInt(),
+      limit: (json['limit'] as num).toInt(),
+      totalCount: (json['totalCount'] as num).toInt(),
+      totalPages: (json['totalPages'] as num).toInt(),
+      hasNext: json['hasNext'] as bool,
+      hasPrev: json['hasPrev'] as bool,
+    );
+
+Map<String, dynamic> _$$PaginationInfoImplToJson(
+  _$PaginationInfoImpl instance,
+) => <String, dynamic>{
+  'page': instance.page,
+  'limit': instance.limit,
+  'totalCount': instance.totalCount,
+  'totalPages': instance.totalPages,
+  'hasNext': instance.hasNext,
+  'hasPrev': instance.hasPrev,
+};
+
 _$NotificationResponseImpl _$$NotificationResponseImplFromJson(
   Map<String, dynamic> json,
 ) => _$NotificationResponseImpl(
@@ -41,6 +62,9 @@ _$NotificationResponseImpl _$$NotificationResponseImplFromJson(
       .map((e) => MeetingNotification.fromJson(e as Map<String, dynamic>))
       .toList(),
   unreadCount: (json['unreadCount'] as num).toInt(),
+  pagination: json['pagination'] == null
+      ? null
+      : PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$$NotificationResponseImplToJson(
@@ -48,4 +72,5 @@ Map<String, dynamic> _$$NotificationResponseImplToJson(
 ) => <String, dynamic>{
   'notifications': instance.notifications,
   'unreadCount': instance.unreadCount,
+  'pagination': instance.pagination,
 };

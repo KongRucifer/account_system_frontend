@@ -39,6 +39,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     return error;
   }
 
+  
   @override
   void initState() {
     super.initState();
@@ -189,12 +190,18 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                     decoration: InputDecoration(
                       labelText: s.phoneNumber,
                       prefixIcon: const Icon(Icons.phone),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.phoneRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -214,14 +221,19 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
                     obscureText: _obscureNewPassword,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.newPasswordRequired('6');
-                      if (value!.length < 6) return s.passwordTooShort;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -254,13 +266,30 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: authState.isLoading ? null : _resetPassword,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                       child: authState.isLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
                             )
-                          : Text(s.resetButton),
+                          : Text(
+                              s.resetButton,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -271,7 +300,15 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                       ref.read(authControllerProvider.notifier).clearError();
                       context.go('/login');
                     },
-                    child: Text(s.backToLogin),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                    ),
+                    child: Text(
+                      s.backToLogin,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),

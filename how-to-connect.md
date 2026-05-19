@@ -23,5 +23,8 @@ netstat -ano | findstr "LISTENING" | findstr ":4000\|:3000"
 powershell
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:4000 tcp:4000
 
-
+ນີ້ຈະເເມ່ນການ ລືບ ເເອັບເກົ່າເເລ້ວຈະໃຊ້ໄດ້
 adb uninstall com.example.frontend_account_system; flutter clean; flutter run
+ັ
+ເເລະນີ້ຈະເເມ່ນການ run with real app ເຈາະຈົງ
+flutter run -d e23ddfb9

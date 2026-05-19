@@ -79,6 +79,11 @@ class AuthController extends StateNotifier<AuthState> {
       await _fcmService.registerToken();
 
       state = state.copyWith(user: user, isLoading: false);
+      
+      // 🔄 Refresh notification provider after successful login
+      debugPrint('🔄 AuthController: Login successful, refreshing notification provider');
+      // Note: This will be handled by the notification provider's retry mechanism
+      
       return true;
     } catch (e) {
       final raw = e.toString();

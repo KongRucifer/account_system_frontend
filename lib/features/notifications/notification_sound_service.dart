@@ -15,7 +15,13 @@ class NotificationSoundService {
     try {
       // ถ้ากำลังเล่นอยู่แล้วสำหรับ notification เดียวกัน ไม่ต้องเล่นซ้ำ
       if (_isPlaying && _currentNotificationId == notificationId) {
+        debugPrint('🔊 Sound already playing for: $notificationId');
         return;
+      }
+
+      // หยุดเสียงเก่าก่อน
+      if (_isPlaying) {
+        await _audioPlayer.stop();
       }
 
       _currentNotificationId = notificationId;
@@ -26,9 +32,10 @@ class NotificationSoundService {
       
       // เล่นเสียงแจ้งเตือน (ใช้ระบบเสียงของ Android/iOS)
       // สามารถเปลี่ยนเป็นไฟล์เสียงที่กำหนดเองได้
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+      debugPrint('🔊 Starting loop sound for: $notificationId');
+      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
       
-      debugPrint('🔊 Playing notification sound for: $notificationId');
+      debugPrint('🔊 Playing notification sound for: $notificationId (LOOPING)');
     } catch (e) {
       debugPrint('❌ Error playing notification sound: $e');
       // Fallback: เล่นเสียงระบบถ้าไม่มีไฟล์
@@ -54,7 +61,7 @@ class NotificationSoundService {
   Future<void> playShortNotificationSound() async {
     try {
       await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
       debugPrint('🔊 Played short notification sound');
     } catch (e) {
       debugPrint('❌ Error playing short sound: $e');
@@ -66,7 +73,7 @@ class NotificationSoundService {
   Future<void> playSuccessSound() async {
     try {
       await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/success.mp3'));
+      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
       debugPrint('🔊 Played success sound');
     } catch (e) {
       debugPrint('❌ Error playing success sound: $e');

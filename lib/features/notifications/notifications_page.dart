@@ -15,8 +15,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     super.initState();
     // Refresh notifications when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 🔇 หยุดเสียงเมื่อเข้าหน้า notifications
-      ref.read(notificationsProvider.notifier).stopAllSounds();
+      // Don't stop sound automatically - let user click individual notification
       ref.read(notificationsProvider.notifier).refresh();
     });
   }
@@ -28,23 +27,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('ແຈ້ງເຕືອນ'), // Notifications
-        actions: [
-          // WebSocket connection status indicator
-          Consumer(
-            builder: (context, ref, child) {
-              final notificationsAsync = ref.watch(notificationsProvider);
-              return notificationsAsync.when(
-                data: (state) => Icon(
-                  state.isWebSocketConnected ? Icons.wifi : Icons.wifi_off,
-                  color: state.isWebSocketConnected ? Colors.green : Colors.red,
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const Icon(Icons.error, color: Colors.red),
-              );
-            },
-          ),
-          const SizedBox(width: 16),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -102,88 +84,148 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               );
             }
 
-            return ListView.builder(
-              itemCount: state.notifications.length,
-              itemBuilder: (context, index) {
-                final notification = state.notifications[index];
-                final isRead = notification.isRead;
-
-                return Dismissible(
-                  key: Key(notification.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Colors.green,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    child: const Icon(Icons.check, color: Colors.white),
-                  ),
-                  onDismissed: (_) {
-                    ref
-                        .read(notificationsProvider.notifier)
-                        .markAsRead(notification.id);
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
+            return Column(
+              children: [
+                // Mark All as Read Button with Label
+                if (state.unreadCount > 0)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.all(16),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        ref.read(notificationsProvider.notifier).markAllAsRead();
+                      },
+                      icon: const Icon(Icons.done_all),
+                      label: Text(
+                        'ອ່ານເເລ້ວ (${state.unreadCount})', // Mark all as read (count)
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                    color: isRead ? null : Colors.blue[50],
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            isRead ? Colors.grey : Colors.blue,
-                        child: Icon(
-                          isRead
-                              ? Icons.notifications
-                              : Icons.notifications_active,
-                          color: Colors.white,
+                  ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: state.notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = state.notifications[index];
+                      final isRead = notification.isRead;
+
+                      return Dismissible(
+                        key: Key(notification.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          color: Colors.green,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          child: const Icon(Icons.check, color: Colors.white),
                         ),
-                      ),
-                      title: Text(
-                        notification.message,
-                        style: TextStyle(
-                          fontWeight:
-                              isRead ? FontWeight.normal : FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ວັນປະຊຸມ: ${notification.meetingDate}', // Meeting date
-                          ),
-                          Text(
-                            _formatDate(notification.createdAt),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      trailing: isRead
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.check_circle_outline),
-                              color: Colors.green,
-                              onPressed: () {
-                                ref
-                                    .read(notificationsProvider.notifier)
-                                    .markAsRead(notification.id);
-                              },
-                            ),
-                      onTap: () {
-                        if (!isRead) {
+                        onDismissed: (_) {
                           ref
                               .read(notificationsProvider.notifier)
                               .markAsRead(notification.id);
-                        }
-                        // TODO: Navigate to meeting details if needed
-                      },
+                        },
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          color: isRead ? null : Colors.blue[50],
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor:
+                                  isRead ? Colors.grey : Colors.blue,
+                              child: Icon(
+                                isRead
+                                    ? Icons.notifications
+                                    : Icons.notifications_active,
+                                color: Colors.white,
+                              ),
+                            ),
+                            title: Text(
+                              notification.message,
+                              style: TextStyle(
+                                fontWeight:
+                                    isRead ? FontWeight.normal : FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ວັນປະຊຸມ: ${notification.meetingDate}', // Meeting date
+                                ),
+                                Text(
+                                  _formatDate(notification.createdAt),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: isRead
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.check_circle_outline),
+                                    color: Colors.green,
+                                    onPressed: () {
+                                      ref
+                                          .read(notificationsProvider.notifier)
+                                          .markAsRead(notification.id);
+                                    },
+                                  ),
+                            onTap: () {
+                              if (!isRead) {
+                                ref
+                                    .read(notificationsProvider.notifier)
+                                    .markAsRead(notification.id);
+                              }
+                              // TODO: Navigate to meeting details if needed
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // Pagination controls
+                if (state.pagination != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: state.pagination!.hasPrev
+                              ? () {
+                                  ref.read(notificationsProvider.notifier).loadPreviousPage();
+                                }
+                              : null,
+                        ),
+                        Text(
+                          'ໜ້າ ${state.currentPage} / ${state.pagination!.totalPages}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: state.pagination!.hasNext
+                              ? () {
+                                  ref.read(notificationsProvider.notifier).loadNextPage();
+                                }
+                              : null,
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+              ],
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  
+  // Backend validation errors
+  String? _usernameError;
+  bool _isCheckingUsername = false;
 
   @override
   void dispose() {
@@ -64,6 +69,57 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     return error;
   }
 
+  // Real-time username availability check
+  Future<void> _checkUsernameAvailability(String username) async {
+    if (username.length < 3) {
+      setState(() {
+        _usernameError = null;
+        _isCheckingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      final result = await authRepository.checkUsernameAvailability(username);
+      
+      if (mounted) {
+        setState(() {
+          _isCheckingUsername = false;
+          if (!result['available']) {
+            _usernameError = result['message'] ?? 'Username is already taken';
+          } else {
+            _usernameError = null;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCheckingUsername = false;
+          _usernameError = null; // Don't show error for network issues, just clear
+        });
+      }
+    }
+  }
+
+  // Debounced username check
+  Timer? _usernameCheckTimer;
+  void _onUsernameChanged(String value) {
+    _usernameCheckTimer?.cancel();
+    _usernameCheckTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _checkUsernameAvailability(value);
+      }
+    });
+  }
+
+  
   @override
   void initState() {
     super.initState();
@@ -204,12 +260,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     decoration: InputDecoration(
                       labelText: s.bankbookNumber,
                       prefixIcon: const Icon(Icons.book_outlined),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.bankbookRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -219,12 +281,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     decoration: InputDecoration(
                       labelText: s.vbCode,
                       prefixIcon: const Icon(Icons.location_on_outlined),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.vbCodeRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -233,13 +301,35 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     controller: _usernameController,
                     decoration: InputDecoration(
                       labelText: s.username,
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: const OutlineInputBorder(),
+                      prefixIcon: _isCheckingUsername 
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _usernameError != null ? Colors.red : Colors.grey.shade300,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
+                      errorText: _usernameError,
+                      errorStyle: const TextStyle(color: Colors.red),
+                      suffixIcon: _usernameError != null
+                          ? const Icon(Icons.error, color: Colors.red, size: 20)
+                          : (_usernameController.text.length >= 3 && _usernameError == null && !_isCheckingUsername)
+                              ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                              : null,
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.usernameRequired;
-                      return null;
-                    },
+                    onChanged: _onUsernameChanged,
                   ),
                   const SizedBox(height: 16),
 
@@ -250,12 +340,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     decoration: InputDecoration(
                       labelText: s.phoneNumber,
                       prefixIcon: const Icon(Icons.phone),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.phoneRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -275,14 +371,19 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
                     obscureText: _obscurePassword,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.passwordRequired;
-                      if (value!.length < 6) return s.passwordTooShort;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -302,14 +403,19 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
                     obscureText: _obscureConfirmPassword,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.passwordRequired;
-                      if (value != _passwordController.text) return s.passwordMismatch;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -342,13 +448,30 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: authState.isLoading ? null : _register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                       child: authState.isLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
                             )
-                          : Text(s.registerButton),
+                          : Text(
+                              s.registerButton,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -366,7 +489,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           ref.read(authControllerProvider.notifier).clearError();
                           context.go('/login');
                         },
-                        child: Text(s.loginNow),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                        ),
+                        child: Text(
+                          s.loginNow,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/language_provider.dart';
 import '../../../../core/widgets/lang_toggle_button.dart';
@@ -36,15 +37,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return error;
   }
 
+  
   @override
   void initState() {
     super.initState();
+    _loadRememberedUsername();
     // Clear any previous errors when entering this page
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(authControllerProvider.notifier).clearError();
       }
     });
+  }
+
+  Future<void> _loadRememberedUsername() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rememberedUsername = prefs.getString('remembered_username');
+      if (rememberedUsername != null && rememberedUsername.isNotEmpty) {
+        _userNameController.text = rememberedUsername;
+        debugPrint('🔑 Loaded remembered username: $rememberedUsername');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading remembered username: $e');
+    }
   }
 
   @override
@@ -63,6 +79,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
 
       if (success && mounted) {
+        // 🔥 Save username to SharedPreferences automatically
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('remembered_username', _userNameController.text.trim());
+          debugPrint('🔑 Saved username: ${_userNameController.text.trim()}');
+        } catch (e) {
+          debugPrint('❌ Error saving username: $e');
+        }
+
         // Success toast
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -201,12 +226,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     decoration: InputDecoration(
                       labelText: s.username,
                       prefixIcon: const Icon(Icons.person_outline),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.usernameRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
                   
@@ -226,13 +257,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
                     ),
                     obscureText: _obscurePassword,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return s.passwordRequired;
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 8),
 
@@ -278,13 +315,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: authState.isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                       child: authState.isLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
                             )
-                          : Text(s.loginButton),
+                          : Text(
+                              s.loginButton,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -302,7 +356,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ref.read(authControllerProvider.notifier).clearError();
                           context.go('/register');
                         },
-                        child: Text(s.registerNow),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                        ),
+                        child: Text(
+                          s.registerNow,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),

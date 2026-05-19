@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/services/storage_service.dart';
@@ -6,8 +8,26 @@ import 'notification_repository.dart';
 class FcmRegistrationService {
   final NotificationRepository _repository;
   final StorageService _storage;
+  final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   FcmRegistrationService(this._repository, this._storage);
+
+  /// Get unique device ID
+  Future<String> _getDeviceId() async {
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await _deviceInfo.androidInfo;
+        return 'android_${androidInfo.id}_${androidInfo.model}';
+      } else if (Platform.isIOS) {
+        final iosInfo = await _deviceInfo.iosInfo;
+        return 'ios_${iosInfo.identifierForVendor ?? iosInfo.name}_${iosInfo.model}';
+      }
+      return 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+    } catch (e) {
+      debugPrint('❌ Error getting device ID: $e');
+      return 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
 
   /// Request permission and register FCM token with the backend.
   /// Call this once after a successful login.
@@ -38,20 +58,24 @@ class FcmRegistrationService {
 
       debugPrint('📱 FCM token: $token');
 
+      // Get device ID
+      final deviceId = await _getDeviceId();
+      debugPrint('📱 Device ID: $deviceId');
+
       // Send token to backend
-      await _sendTokenToBackend(token);
+      await _sendTokenToBackend(deviceId, token);
 
       // Listen for token refresh and re-register automatically
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         debugPrint('🔄 FCM token refreshed');
-        await _sendTokenToBackend(newToken);
+        await _sendTokenToBackend(deviceId, newToken);
       });
     } catch (e) {
       debugPrint('❌ FCM registration error: $e');
     }
   }
 
-  Future<void> _sendTokenToBackend(String token) async {
+  Future<void> _sendTokenToBackend(String deviceId, String token) async {
     try {
       final userData = await _storage.getUser();
       final username = userData?['username'] as String?;
@@ -59,8 +83,8 @@ class FcmRegistrationService {
         debugPrint('⚠️ Cannot register FCM token: no username in storage');
         return;
       }
-      await _repository.updateFcmToken(username, token);
-      debugPrint('✅ FCM token registered for $username');
+      await _repository.updateFcmToken(username, deviceId, token);
+      debugPrint('✅ FCM token registered for $username (device: $deviceId)');
     } catch (e) {
       debugPrint('❌ Failed to send FCM token to backend: $e');
     }

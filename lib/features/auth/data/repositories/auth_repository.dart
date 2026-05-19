@@ -178,4 +178,28 @@ class AuthRepository {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>> checkUsernameAvailability(String username) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/auth/check-username',
+        queryParameters: {'username': username},
+      );
+      
+      if (response.statusCode == 200) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to check username availability');
+      }
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      String message = 'Cannot connect to server. Please check your connection.';
+      
+      if (errorData != null && errorData['message'] != null) {
+        message = errorData['message'];
+      }
+      
+      throw Exception(message);
+    }
+  }
 }
