@@ -119,6 +119,21 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               label: Text(s.viewTransactions),
                             ),
                           ),
+                          const SizedBox(height: 8),
+
+                          //Debug: App Logs Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => context.push('/logs'),
+                              icon: const Icon(Icons.bug_report_outlined, size: 18),
+                              label: const Text('App Logs'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.grey,
+                                side: const BorderSide(color: Colors.grey),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

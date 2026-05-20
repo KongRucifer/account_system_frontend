@@ -3,34 +3,58 @@ import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../firebase_options.dart';
+import 'app_logger.dart';
+
+// Global callback — registered by the app after Riverpod is ready
+// Called when user taps a local notification (foreground or background)
+typedef NotificationTapCallback = Future<void> Function(String notificationId);
+NotificationTapCallback? _globalNotificationTapCallback;
+
+void setNotificationTapCallback(NotificationTapCallback callback) {
+  _globalNotificationTapCallback = callback;
+  debugPrint('✅ Notification tap callback registered');
+}
 
 // Must be a top-level function with @pragma so R8 does not strip it in release builds
 @pragma('vm:entry-point')
 void onNotificationTap(NotificationResponse response) {
   final payload = response.payload;
-  if (payload != null) {
-    final data = jsonDecode(payload);
-    debugPrint('👆 Notification tapped with data: $data');
+  if (payload == null) return;
+  try {
+    final data = jsonDecode(payload) as Map<String, dynamic>;
+    final notificationId = data['notificationId'] as String?;
+    debugPrint('👆 Notification tapped, notificationId: $notificationId');
+    if (notificationId != null && _globalNotificationTapCallback != null) {
+      _globalNotificationTapCallback!(notificationId);
+    }
+  } catch (e) {
+    debugPrint('❌ Error parsing notification tap payload: $e');
   }
 }
 
 // Background message handler - ต้องอยู่นอก class (top-level function)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('🔔 BACKGROUND MESSAGE RECEIVED: ${message.messageId}');
+  debugPrint('🔔 Title: ${message.notification?.title}');
+  debugPrint('🔔 Body: ${message.notification?.body}');
+  debugPrint('🔔 Data: ${message.data}');
+  
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('🔔 Firebase initialized in background');
 
   // Initialize local notifications in background-safe mode (no permission request)
   await LocalNotificationService.initializeForBackground();
+  debugPrint('🔔 Local notifications initialized in background');
 
-  // Only show local notification for data-only messages.
-  // If message.notification != null the OS already displayed it — skip to avoid duplicates.
-  if (message.notification == null) {
-    await LocalNotificationService.showNotification(message);
-  }
+  // ALWAYS show local notification - this is the only way notifications will appear now
+  await LocalNotificationService.showNotification(message);
+  debugPrint('🔔 Local notification shown in background');
 
-  debugPrint('🔔 Background handler done: ${message.messageId ?? 'unknown'}');
+  debugPrint('🔔 Background handler completed: ${message.messageId ?? 'unknown'}');
 }
 
 class FirebaseMessagingService {
@@ -40,11 +64,18 @@ class FirebaseMessagingService {
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   String? _fcmToken;
+  bool _isInitialized = false;
 
   /// Initialize Firebase Messaging
   Future<void> initialize() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    
+    // Track app lifecycle changes
+    WidgetsBinding.instance.addObserver(AppLifecycleObserver());
+    
     try {
-      // Request permission (iOS)
+      // Request permission for iOS (Android permission is handled in main.dart before this)
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
@@ -52,7 +83,7 @@ class FirebaseMessagingService {
         provisional: false,
       );
 
-      debugPrint('🔔 FCM Permission status: ${settings.authorizationStatus}');
+      AppLogger.log('🔔 FCM Permission status: ${settings.authorizationStatus}');
 
       // Get FCM token (but don't send to server here - FcmRegistrationService will do that after login)
       await _getFcmToken();
@@ -64,14 +95,14 @@ class FirebaseMessagingService {
         // Note: Token is sent to server by FcmRegistrationService after login
       });
 
-      // Set foreground notification presentation options
+      // DISABLED: Foreground presentation - we only want background notifications
       await _firebaseMessaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
+        alert: false,
+        badge: false,
+        sound: false,
       );
 
-      // Handle foreground messages
+      // Re-enabled: Handle messages when app is in foreground (but treat them like background)
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Handle notification click when app is in background
@@ -83,9 +114,9 @@ class FirebaseMessagingService {
         _handleMessageOpenedApp(initialMessage);
       }
 
-      debugPrint('✅ Firebase Messaging initialized');
+      AppLogger.log('✅ Firebase Messaging service ready');
     } catch (e) {
-      debugPrint('❌ Error initializing Firebase Messaging: $e');
+      AppLogger.log('❌ Error initializing Firebase Messaging: $e');
     }
   }
 
@@ -93,10 +124,10 @@ class FirebaseMessagingService {
   Future<void> _getFcmToken() async {
     try {
       _fcmToken = await _firebaseMessaging.getToken();
-      debugPrint('📱 FCM Token: $_fcmToken');
+      AppLogger.log('📱 FCM Token: $_fcmToken');
       // Note: Token is sent to server by FcmRegistrationService after login
     } catch (e) {
-      debugPrint('❌ Error getting FCM token: $e');
+      AppLogger.log('❌ Error getting FCM token: $e');
     }
   }
 
@@ -108,27 +139,26 @@ class FirebaseMessagingService {
     return _fcmToken;
   }
 
-  /// Handle foreground messages
+  
+  /// Handle foreground messages (treat them like background notifications)
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('📩 Foreground message received:');
-    debugPrint('  Title: ${message.notification?.title}');
-    debugPrint('  Body: ${message.notification?.body}');
-    debugPrint('  Data: ${message.data}');
+    debugPrint('📩 FOREGROUND MESSAGE RECEIVED: ${message.messageId}');
+    debugPrint('📩 Title: ${message.notification?.title}');
+    debugPrint('📩 Body: ${message.notification?.body}');
+    debugPrint('📩 Data: ${message.data}');
 
-    // Show local notification
+    // Show local notification even in foreground (with sound)
     LocalNotificationService.showNotification(message);
+    debugPrint('📩 Local notification shown in foreground');
   }
 
-  /// Handle notification click
+  /// Handle notification click (app background → foreground, or terminated → open)
   void _handleMessageOpenedApp(RemoteMessage message) {
-    debugPrint('👆 Notification clicked: ${message.data}');
-    
-    // Navigate to notifications page or specific screen
-    final notificationId = message.data['notificationId'];
-    final type = message.data['type'];
-    
-    // TODO: Implement navigation logic
-    // Navigator.pushNamed(context, '/notifications', arguments: notificationId);
+    debugPrint('👆 FCM notification tapped: ${message.data}');
+    final notificationId = message.data['notificationId'] as String?;
+    if (notificationId != null && _globalNotificationTapCallback != null) {
+      _globalNotificationTapCallback!(notificationId);
+    }
   }
 
   /// Subscribe to topic
@@ -151,6 +181,33 @@ class FirebaseMessagingService {
     await _firebaseMessaging.deleteToken();
     _fcmToken = null;
     debugPrint('🗑️ FCM token deleted');
+  }
+}
+
+/// Observer to track app lifecycle changes
+class AppLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('🔄 APP LIFECYCLE CHANGED: $state');
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        debugPrint('📱 APP RESUMED (foreground)');
+        break;
+      case AppLifecycleState.inactive:
+        debugPrint('📱 APP INACTIVE');
+        break;
+      case AppLifecycleState.paused:
+        debugPrint('📱 APP PAUSED (background)');
+        break;
+      case AppLifecycleState.detached:
+        debugPrint('📱 APP DETACHED');
+        break;
+      case AppLifecycleState.hidden:
+        debugPrint('📱 APP HIDDEN');
+        break;
+    }
   }
 }
 
@@ -192,7 +249,7 @@ class LocalNotificationService {
     // Create notification channel for Android
     // Channel ID bumped to v4 to force recreation with meeting_sound.wav
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'meeting_notifications_v5',
+      'meeting_notifications_v6',
       'Meeting Notifications',
       description: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -205,9 +262,6 @@ class LocalNotificationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
     await androidPlugin?.createNotificationChannel(channel);
-
-    // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+)
-    await androidPlugin?.requestNotificationsPermission();
 
     _initialized = true;
     debugPrint('✅ Local Notification Service initialized');
@@ -228,7 +282,7 @@ class LocalNotificationService {
 
     // Channel ID bumped to v4 to force recreation with meeting_sound.wav
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'meeting_notifications_v5',
+      'meeting_notifications_v6',
       'Meeting Notifications',
       description: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -246,10 +300,10 @@ class LocalNotificationService {
 
   /// Show notification and repeat every 5s until cancelRepeating() is called
   static Future<void> showNotification(RemoteMessage message) async {
-    debugPrint('🔔 showNotification called');
+    AppLogger.log('🔔 showNotification called - IS BACKGROUND: ${WidgetsBinding.instance.lifecycleState == AppLifecycleState.paused || WidgetsBinding.instance.lifecycleState == AppLifecycleState.inactive}');
 
     if (!_initialized) {
-      debugPrint('🔔 Initializing local notifications (background-safe)...');
+      AppLogger.log('🔔 Initializing local notifications (background-safe)...');
       await initializeForBackground();
     }
 
@@ -263,7 +317,7 @@ class LocalNotificationService {
     debugPrint('🔔 Notification body: $body');
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'meeting_notifications_v5',
+      'meeting_notifications_v6',
       'Meeting Notifications',
       channelDescription: 'Notifications for upcoming village bank meetings',
       importance: Importance.high,
@@ -314,9 +368,9 @@ class LocalNotificationService {
           details,
           payload: jsonEncode(data),
         );
-        debugPrint('🔔 Notification shown (id: $currentId)');
+        AppLogger.log('🔔 Notification shown (id: $currentId)');
       } catch (e) {
-        debugPrint('🔔 ERROR showing notification: $e');
+        AppLogger.log('🔔 ERROR showing notification: $e');
       }
     }
 
@@ -337,11 +391,18 @@ class LocalNotificationService {
 
   /// Cancel repeating notification — call this when user reads the notification
   static Future<void> cancelRepeating() async {
+    debugPrint('🔇 CANCEL REPEATING STARTED');
     _sessionToken++; // invalidate any running timer session immediately
+    debugPrint('🔇 Session token incremented to: $_sessionToken');
+    
     _repeatTimer?.cancel();
     _repeatTimer = null;
+    debugPrint('🔇 Timer cancelled and set to null');
+    
     await _notificationsPlugin.cancelAll();
-    debugPrint('🔇 Cancelled repeating notification (all cleared)');
+    debugPrint('🔇 All notifications cancelled');
+    
+    debugPrint('🔇 CANCEL REPEATING COMPLETED - Sound should stop now');
   }
 
 

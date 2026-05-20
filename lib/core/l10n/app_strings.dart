@@ -42,8 +42,10 @@ class AppStrings {
   String get phoneNumber => _s('Phone Number', 'ເບີໂທລະສັບ');
   String get vbCode => _s('Village Code', 'ເລກລະຫັດບ້ານ');
   String get bankbookRequired => _s('Please enter bankbook number', 'ກະລຸນາປ້ອນເລກປື້ມທະນາຄານ');
-  String get passwordTooShort => _s('Password must be at least 6 characters', 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງຫນ້ອຍ 6 ຕົວອັກສອນ');
+  String get passwordTooShort => _s('Password must be at least 8 characters', 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ');
+  String get passwordNoSpecial => _s('Password must contain at least one special character (!@#\$%^&*...)', 'ລະຫັດຜ່ານຕ້ອງມີອັກສອນພິເສດຢ່າງໜ້ອຍ 1 ຕົວ (!@#\$%^&*...)');
   String get passwordMismatch => _s('Passwords do not match', 'ລະຫັດຜ່ານບໍ່ກົງກັນ');
+  String get passwordValid => _s('Password is valid', 'ລະຫັດຜ່ານຖືກຕ້ອງ');
   String get phoneRequired => _s('Please enter phone number', 'ກະລຸນາປ້ອນເບີໂທລະສັບ');
   String get vbCodeRequired => _s('Please enter village code', 'ກະລຸນາປ້ອນເລກລະຫັດບ້ານ');
   String get bankbookTooLong => _s('Bankbook number must be shorter than or equal to 5 characters', 'ເລກປື້ມທະນາຄານຕ້ອງມີບໍ່ເກີນ 5 ຕົວອັກສອນ');

@@ -35,8 +35,10 @@ class NotificationWebSocketService {
         return;
       }
 
-      final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000';
-      // Keep HTTP URL for Socket.IO, it will handle WebSocket upgrade automatically
+      // Strip /api/v1 suffix — Socket.IO gateway is at root, not under /api/v1
+      final rawUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000';
+      final uri = Uri.parse(rawUrl);
+      final baseUrl = '${uri.scheme}://${uri.host}:${uri.port}';
       debugPrint('Connecting to WebSocket: $baseUrl/notifications');
 
       _socket = IO.io(
@@ -113,9 +115,18 @@ class NotificationWebSocketService {
   void markAsRead(String notificationId) {
     if (_socket != null && _socket!.connected) {
       _socket!.emit('mark_as_read', {'notificationId': notificationId});
-      debugPrint('Marked notification as read: $notificationId');
+      debugPrint('✓ Emitted mark_as_read: $notificationId');
     } else {
-      debugPrint('Cannot mark as read: WebSocket not connected');
+      debugPrint('⚠️ Cannot mark as read: WebSocket not connected');
+    }
+  }
+
+  void markAllAsRead() {
+    if (_socket != null && _socket!.connected) {
+      _socket!.emit('mark_all_as_read', {});
+      debugPrint('✓ Emitted mark_all_as_read');
+    } else {
+      debugPrint('⚠️ Cannot mark all as read: WebSocket not connected');
     }
   }
 

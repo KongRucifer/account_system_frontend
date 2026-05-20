@@ -6,6 +6,7 @@ import '../features/auth/presentation/pages/reset_password_page.dart';
 import '../features/accounts/presentation/pages/accounts_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/transactions/presentation/pages/transactions_page.dart';
+import '../features/debug/log_viewer_page.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -75,6 +76,11 @@ class AppRouter {
           }
           return TransactionsPage(accNumber: accNumber, accountType: accountType);
         },
+      ),
+      GoRoute(
+        path: '/logs',
+        name: 'logs',
+        builder: (context, state) => const LogViewerPage(),
       ),
     ],
     redirect: (context, state) {

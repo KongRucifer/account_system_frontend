@@ -8,50 +8,55 @@ import 'app.dart';
 import 'core/providers/core_providers.dart';
 import 'core/services/firebase_messaging_service.dart';
 import 'core/services/storage_service.dart';
+import 'core/services/app_logger.dart';
 import 'firebase_options.dart';
 
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     
-    debugPrint('🚀 Starting app initialization...');
+    AppLogger.log('🚀 Starting app initialization...');
 
     // Load .env FIRST so API_BASE_URL is available for everything below
     await dotenv.load(fileName: '.env');
-    debugPrint('✅ Environment loaded: ${dotenv.env['API_BASE_URL']}');
+    AppLogger.log('✅ Environment loaded: ${dotenv.env['API_BASE_URL']}');
     
     // Initialize Storage Service
     final storage = StorageService();
     await storage.init();
-    debugPrint('✅ Storage initialized');
+    AppLogger.log('✅ Storage initialized');
     
     // Set instance for provider to use (singleton pattern)
     setStorageServiceInstance(storage);
     
     // Initialize Firebase with explicit options (required for release builds)
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    debugPrint('✅ Firebase initialized');
+    AppLogger.log('✅ Firebase initialized');
     
     // Set background message handler (required for background notifications)
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    debugPrint('✅ Background handler set');
+    AppLogger.log('✅ Background handler set');
     
     // Initialize local notifications
     await LocalNotificationService.initialize();
-    debugPrint('✅ Local notifications initialized');
+    AppLogger.log('✅ Local notifications initialized');
+
+    // Initialize Firebase Messaging — sets onMessage listener, requests FCM permission, gets token
+    await FirebaseMessagingService().initialize();
+    AppLogger.log('✅ Firebase Messaging initialized');
 
     // Explicitly request notification permission (shows dialog on Android 13+)
     await _requestNotificationPermission();
     
-    debugPrint('🎬 Running app...');
+    AppLogger.log('🎬 Running app...');
     runApp(
       const ProviderScope(
         child: MyApp(),
       ),
     );
   } catch (e, stackTrace) {
-    debugPrint('❌ FATAL ERROR during initialization: $e');
-    debugPrint('Stack trace: $stackTrace');
+    AppLogger.log('❌ FATAL ERROR during initialization: $e');
+    AppLogger.log('Stack trace: $stackTrace');
     rethrow;
   }
 }
@@ -65,10 +70,10 @@ Future<void> _requestNotificationPermission() async {
     if (androidPlugin != null) {
       // For Android 13+ (API 33+), this shows the permission dialog
       final granted = await androidPlugin.requestNotificationsPermission();
-      debugPrint('🔔 Notification permission dialog shown');
-      debugPrint('🔔 Permission result: ${granted == true ? 'GRANTED' : 'DENIED'}');
+      AppLogger.log('🔔 Notification permission dialog shown');
+      AppLogger.log('🔔 Permission result: ${granted == true ? 'GRANTED' : 'DENIED'}');
     }
   } catch (e) {
-    debugPrint('❌ Error requesting notification permission: $e');
+    AppLogger.log('❌ Error requesting notification permission: $e');
   }
 }

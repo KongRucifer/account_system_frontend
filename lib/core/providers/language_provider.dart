@@ -5,13 +5,13 @@ import '../l10n/app_strings.dart';
 const _langKey = 'app_language';
 
 class LanguageNotifier extends StateNotifier<AppStrings> {
-  LanguageNotifier() : super(AppStrings.en) {
+  LanguageNotifier() : super(AppStrings.lo) {
     _loadSaved();
   }
 
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
-    final code = prefs.getString(_langKey) ?? 'en';
+    final code = prefs.getString(_langKey) ?? 'lo';
     state = code == 'lo' ? AppStrings.lo : AppStrings.en;
   }
 

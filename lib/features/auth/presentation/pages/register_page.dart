@@ -257,12 +257,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   TextFormField(
                     controller: _bankbookController,
                     keyboardType: TextInputType.number,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.bankbookNumber,
                       prefixIcon: const Icon(Icons.book_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -272,18 +271,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         borderSide: const BorderSide(color: Colors.blue, width: 2),
                       ),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return s.bankbookRequired;
+                      if (value.trim().length > 5) return s.bankbookTooLong;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
 
                   // Village Code Field
                   TextFormField(
                     controller: _vbCodeController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.vbCode,
                       prefixIcon: const Icon(Icons.location_on_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -293,6 +296,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         borderSide: const BorderSide(color: Colors.blue, width: 2),
                       ),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return s.vbCodeRequired;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -337,12 +344,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.phoneNumber,
                       prefixIcon: const Icon(Icons.phone),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -352,28 +358,30 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         borderSide: const BorderSide(color: Colors.blue, width: 2),
                       ),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return s.phoneRequired;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
 
                   // Password Field
                   TextFormField(
                     controller: _passwordController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    onChanged: (_) {
+                      if (_confirmPasswordController.text.isNotEmpty) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                     decoration: InputDecoration(
                       labelText: s.password,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -384,28 +392,28 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ),
                     ),
                     obscureText: _obscurePassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return s.passwordRequired;
+                      if (value.length < 8) return s.passwordTooShort;
+                      final hasSpecial = RegExp(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]').hasMatch(value);
+                      if (!hasSpecial) return s.passwordNoSpecial;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
 
                   // Confirm Password Field
                   TextFormField(
                     controller: _confirmPasswordController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.confirmPassword,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscureConfirmPassword = !_obscureConfirmPassword;
-                          });
-                        },
+                        icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -416,6 +424,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ),
                     ),
                     obscureText: _obscureConfirmPassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return s.passwordRequired;
+                      if (value != _passwordController.text) return s.passwordMismatch;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 24),
 

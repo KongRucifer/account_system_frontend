@@ -17,7 +17,7 @@ class MainActivity : FlutterActivity() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "meeting_notifications_v5"
+            val channelId = "meeting_notifications_v6"
             val channelName = "Meeting Notifications"
             val channelDescription = "Notifications for upcoming village bank meetings"
 

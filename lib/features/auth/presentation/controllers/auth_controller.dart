@@ -94,6 +94,12 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Stop any repeating notification timer before clearing state
+    await LocalNotificationService.cancelRepeating();
+
+    // Deactivate FCM token for this device only (B, C devices stay active)
+    await _fcmService.deactivateToken();
+
     // Call logout endpoint to revoke refresh token on server
     await _repository.logout();
     

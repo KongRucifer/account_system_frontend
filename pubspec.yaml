@@ -70,6 +70,9 @@ dependencies:
   # Device info for unique device ID
   device_info_plus: ^10.1.0
 
+  # Runtime permissions (Android 13+ notification permission dialog)
+  permission_handler: ^11.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -108,6 +108,12 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       // Load initial notifications
       await loadNotifications();
 
+      // Register tap callback: tapping the toast notification marks it as read
+      setNotificationTapCallback((notificationId) async {
+        debugPrint('👆 Toast tapped: $notificationId — marking as read');
+        await markAsRead(notificationId);
+      });
+
       // Connect WebSocket
       _connectWebSocket();
 
@@ -123,13 +129,13 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     _webSocketService.connect();
 
     // Listen to notifications
-    _notificationSubscription = _webSocketService.notificationStream.listen((event) {
+    _notificationSubscription = _webSocketService.notificationStream.listen((event) async {
       if (event['type'] == 'new_notification') {
         _handleNewNotification(event['data']);
       } else if (event['type'] == 'notification_read') {
-        _handleNotificationRead(event['data']);
+        await _handleNotificationRead(event['data']);
       } else if (event['type'] == 'all_notifications_read') {
-        _handleAllNotificationsRead(event['data']);
+        await _handleAllNotificationsRead(event['data']);
       }
     });
 
@@ -188,9 +194,13 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     }
   }
 
-  void _handleNotificationRead(Map<String, dynamic> data) {
+  Future<void> _handleNotificationRead(Map<String, dynamic> data) async {
     final notificationId = data['notificationId'] as String?;
     if (notificationId == null) return;
+
+    // 🔇 Stop sound/timer immediately on ALL devices (A, B, C all stop when any one reads)
+    await LocalNotificationService.cancelRepeating();
+    await _soundService.stopNotificationSound();
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
@@ -201,21 +211,14 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
     final newUnreadCount = updatedNotifications.where((n) => !n.isRead).length;
 
-    debugPrint('🔔 Notification read: $notificationId, new unread count: $newUnreadCount');
+    debugPrint('🔔 Notification read: $notificationId, unread: $newUnreadCount');
+    debugPrint('🔇 Sound stopped on all devices');
 
-    // Immediate state update
     state = AsyncValue.data(currentState.copyWith(
       notifications: updatedNotifications,
       unreadCount: newUnreadCount,
     ));
 
-    // 🔇 Stop sound if all notifications are read
-    if (newUnreadCount == 0) {
-      _soundService.stopNotificationSound();
-      debugPrint('🔇 Stopped notification sound - all notifications read');
-    }
-    
-    // Force UI update to ensure count updates immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         state = AsyncValue.data(state.value!);
@@ -223,7 +226,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     });
   }
 
-  void _handleAllNotificationsRead(Map<String, dynamic> data) {
+  Future<void> _handleAllNotificationsRead(Map<String, dynamic> data) async {
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) => 
       n.copyWith(isRead: true, readAt: DateTime.now())
@@ -236,8 +239,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       unreadCount: 0,
     ));
 
-    // 🔇 Stop all sounds
-    _soundService.stopNotificationSound();
+    // 🔇 Stop all sounds on this device
+    await LocalNotificationService.cancelRepeating();
+    await _soundService.stopNotificationSound();
     debugPrint('🔇 Stopped notification sound - all notifications read via WebSocket');
   }
 
@@ -284,6 +288,10 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> markAsRead(String notificationId) async {
+    // Always stop sound/timer regardless of username state
+    await LocalNotificationService.cancelRepeating();
+    await _soundService.stopNotificationSound();
+
     if (_username == null) return;
 
     try {
@@ -294,11 +302,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       await _repository.markAsRead(notificationId, _username!);
 
       // Update local state
-      _handleNotificationRead({'notificationId': notificationId});
+      await _handleNotificationRead({'notificationId': notificationId});
 
-      // 🔇 หยุด repeating notification
-      await LocalNotificationService.cancelRepeating();
-      await _soundService.stopNotificationSound();
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     }
@@ -318,11 +323,18 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> markAllAsRead() async {
+    // Always stop sound/timer regardless of username state
+    await LocalNotificationService.cancelRepeating();
+    await _soundService.stopNotificationSound();
+
     if (_username == null) return;
 
     try {
       debugPrint('🔔 Marking all notifications as read for $_username');
       
+      // Notify all other devices via WebSocket
+      _webSocketService.markAllAsRead();
+
       // Update API
       final count = await _repository.markAllAsRead(_username!);
       
@@ -335,9 +347,6 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         unreadCount: 0,
       ));
 
-      // 🔇 หยุด repeating notification
-      await LocalNotificationService.cancelRepeating();
-      await _soundService.stopNotificationSound();
       debugPrint('🔇 Cancelled repeating notification - all read');
       
       debugPrint('✅ Marked $count notifications as read');

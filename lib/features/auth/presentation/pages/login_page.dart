@@ -220,15 +220,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   const SizedBox(height: 32),
                   
-                  // Bankbook Number Field
+                  // Username Field
                   TextFormField(
                     controller: _userNameController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.username,
                       prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -238,28 +237,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         borderSide: const BorderSide(color: Colors.blue, width: 2),
                       ),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return s.usernameRequired;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   
                   // Password Field
                   TextFormField(
                     controller: _passwordController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: s.password,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -270,6 +266,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     obscureText: _obscurePassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return s.passwordRequired;
+                      if (value.length < 8) return s.passwordTooShort;
+                      final hasSpecial = RegExp(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]').hasMatch(value);
+                      if (!hasSpecial) return s.passwordNoSpecial;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 8),
 

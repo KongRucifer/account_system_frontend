@@ -89,4 +89,21 @@ class FcmRegistrationService {
       debugPrint('❌ Failed to send FCM token to backend: $e');
     }
   }
+
+  /// ເອີ້ນຕອນ logout — ຕັ້ງ isActive=false ໃຫ້ device ນີ້
+  /// device ອື່ນ (B, C) ຂອງ account ດຽວກັນຍັງ isActive=true ຢູ່
+  Future<void> deactivateToken() async {
+    if (kIsWeb) return;
+    try {
+      final userData = await _storage.getUser();
+      final username = userData?['username'] as String?;
+      if (username == null) return;
+
+      final deviceId = await _getDeviceId();
+      await _repository.deactivateFcmToken(username, deviceId);
+      debugPrint('✅ FCM token deactivated for $username (device: $deviceId)');
+    } catch (e) {
+      debugPrint('❌ Failed to deactivate FCM token: $e');
+    }
+  }
 }

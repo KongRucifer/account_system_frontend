@@ -83,6 +83,21 @@ class NotificationRepository {
     }
   }
 
+  /// ປິດການໃຊ້ FCM token ຂອງ device ນີ້ (ເອີ້ນຕອນ logout)
+  Future<void> deactivateFcmToken(String username, String deviceId) async {
+    try {
+      await _dio.patch(
+        '/notifications/fcm-token/deactivate',
+        data: {
+          'username': username,
+          'deviceId': deviceId,
+        },
+      );
+    } catch (e) {
+      throw Exception('Failed to deactivate FCM token: $e');
+    }
+  }
+
   /// ບັນທຶກ FCM token ແລະ device ID ຂອງ user ໄວ້ໃນຖານຂໍ້ມູນ
   Future<void> updateFcmToken(String username, String deviceId, String fcmToken) async {
     try {
