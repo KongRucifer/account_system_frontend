@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/core_providers.dart';
+import '../../../../core/services/firebase_messaging_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../data/models/login_request.dart';
 import '../../data/models/user.dart';
@@ -72,7 +73,9 @@ class AuthController extends StateNotifier<AuthState> {
       
       // 🔄 Refresh notification provider after successful login
       debugPrint('🔄 AuthController: Login successful, refreshing notification provider');
-      // Note: This will be handled by the notification provider's retry mechanism
+
+      // 🔥 Register FCM token with backend for push notifications
+      FirebaseMessagingService.registerToken(username);
       
       return true;
     } catch (e) {
@@ -84,6 +87,13 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // 🔥 Deactivate FCM token before logout so device stops receiving pushes
+    final userData = await _storage.getUser();
+    final username = userData?['username'] as String?;
+    if (username != null) {
+      await FirebaseMessagingService.deactivateToken(username);
+    }
+
     // Call logout endpoint to revoke refresh token on server
     await _repository.logout();
     

@@ -22,7 +22,16 @@ class NotificationWebSocketService {
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
+  // Exponential backoff reconnection
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  static const _maxReconnectAttempts = 10;
+  static const _backoffDelays = [1, 2, 5, 10, 15, 20, 30, 30, 30, 30]; // seconds
+  bool _manualDisconnect = false;
+
   void connect() async {
+    _manualDisconnect = false;
+
     if (_socket != null && _socket!.connected) {
       debugPrint('WebSocket already connected');
       return;
@@ -65,6 +74,10 @@ class NotificationWebSocketService {
       debugPrint('✅ Connected to notification server');
       _isConnected = true;
       _connectionController.add(true);
+      // Reset backoff on successful connection
+      _reconnectAttempts = 0;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
     });
 
     _socket?.on('connected', (data) {
@@ -108,10 +121,45 @@ class NotificationWebSocketService {
       debugPrint('🔌 Disconnected from notification server');
       _isConnected = false;
       _connectionController.add(false);
+      // Auto-reconnect with exponential backoff (unless manually disconnected)
+      if (!_manualDisconnect) {
+        _scheduleReconnect();
+      }
     });
 
     _socket?.onReconnect((_) {
       debugPrint('🔄 Reconnected to notification server');
+      _reconnectAttempts = 0;
+    });
+
+    _socket?.onReconnectFailed((_) {
+      debugPrint('❌ Socket.IO built-in reconnection failed, using custom backoff');
+      _scheduleReconnect();
+    });
+  }
+
+  /// Schedule a reconnection attempt with exponential backoff
+  void _scheduleReconnect() {
+    if (_manualDisconnect || _reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('⚠️ Max reconnect attempts reached or manually disconnected');
+      return;
+    }
+
+    final delaySeconds = _backoffDelays[
+        _reconnectAttempts.clamp(0, _backoffDelays.length - 1)];
+    _reconnectAttempts++;
+
+    debugPrint(
+        '🔄 Scheduling reconnect attempt $_reconnectAttempts in ${delaySeconds}s');
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (!_manualDisconnect && !_isConnected) {
+        debugPrint('🔄 Attempting reconnect #$_reconnectAttempts...');
+        _socket?.dispose();
+        _socket = null;
+        connect();
+      }
     });
   }
 
@@ -138,11 +186,25 @@ class NotificationWebSocketService {
   }
 
   void disconnect() {
+    _manualDisconnect = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _reconnectAttempts = 0;
     _socket?.disconnect();
+    _socket?.dispose();
     _socket = null;
     _isConnected = false;
     _connectionController.add(false);
     debugPrint('WebSocket disconnected manually');
+  }
+
+  /// Reconnect after manual disconnect (e.g., app resumed)
+  void reconnect() {
+    _manualDisconnect = false;
+    _reconnectAttempts = 0;
+    _socket?.dispose();
+    _socket = null;
+    connect();
   }
 
   void dispose() {

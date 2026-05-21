@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../core/services/firebase_messaging_service.dart';
+import '../../core/services/local_notification_service.dart';
+import '../../core/services/native_intent_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/providers/core_providers.dart';
 import 'notification_model.dart';
@@ -54,11 +57,17 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   final NotificationWebSocketService _webSocketService;
   StreamSubscription? _notificationSubscription;
   StreamSubscription? _connectionSubscription;
+  StreamSubscription? _fcmNotificationSubscription;
+  StreamSubscription? _fcmReadSubscription;
   Timer? _pollingTimer;
   Timer? _retryTimer;
+  Timer? _heartbeatTimer;
   String? _username;
   bool _isInitializing = false;
   bool _isDisposed = false;
+
+  // Deduplication: track processed notification IDs
+  final Set<String> _processedIds = {};
 
   NotificationsNotifier({
     required NotificationRepository repository,
@@ -110,6 +119,11 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       debugPrint('✅ NotificationProvider: username = $_username, loading notifications');
       
       if (_isDisposed) return;
+
+      // Check for terminated state notification FIRST
+      await _checkForTerminatedStateNotification();
+
+      if (_isDisposed) return;
       
       await loadNotifications();
 
@@ -117,6 +131,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       
       _connectWebSocket();
       _startPolling();
+      _startHeartbeat();
+      _listenToFcmStreams();
     } catch (e, stack) {
       debugPrint('❌ NotificationProvider initialization error: $e');
       if (!_isDisposed) {
@@ -153,14 +169,86 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     });
   }
 
+  /// Check and process notifications from terminated state launch
+  Future<void> _checkForTerminatedStateNotification() async {
+    debugPrint('🔍 ===== CHECKING FOR TERMINATED STATE NOTIFICATION =====');
+
+    // Check native intent first
+    final pendingId = await NativeIntentService.getPendingNotificationId();
+    if (pendingId != null && pendingId.isNotEmpty) {
+      debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION: $pendingId');
+      await LocalNotificationService.cancelRepeating();
+      if (_username != null) {
+        await _markAsReadInternal(pendingId);
+      }
+      return;
+    }
+
+    // Check FCM service for pending
+    final fcmPendingId = FirebaseMessagingService.consumePendingNotificationId();
+    if (fcmPendingId != null && fcmPendingId.isNotEmpty) {
+      debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION (FCM): $fcmPendingId');
+      await LocalNotificationService.cancelRepeating();
+      if (_username != null) {
+        await _markAsReadInternal(fcmPendingId);
+      }
+    }
+  }
+
+  /// Listen to FCM streams for foreground notifications and tap events
+  void _listenToFcmStreams() {
+    _fcmNotificationSubscription?.cancel();
+    _fcmReadSubscription?.cancel();
+
+    // When FCM delivers a new notification in foreground
+    _fcmNotificationSubscription = FirebaseMessagingService.onNotification.listen((event) {
+      if (_isDisposed) return;
+      final notificationId = event['notificationId'] as String? ?? '';
+      if (notificationId.isNotEmpty) {
+        // Mark as processed for deduplication with WebSocket
+        FirebaseMessagingService.markAsProcessed(notificationId);
+        // Refresh from API to get accurate count (API = authoritative)
+        loadNotifications();
+      }
+    });
+
+    // When user taps a notification (foreground or background)
+    _fcmReadSubscription = FirebaseMessagingService.onMarkAsRead.listen((notificationId) {
+      if (_isDisposed) return;
+      debugPrint('🔔 FCM tap → marking as read: $notificationId');
+      markAsRead(notificationId);
+    });
+  }
+
+  /// Heartbeat ping to detect dead WebSocket connections
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_isDisposed) return;
+      if (_webSocketService.isConnected) {
+        _webSocketService.ping();
+      }
+    });
+  }
+
   Future<void> _handleNewNotification(Map<String, dynamic> data) async {
     try {
       if (_isDisposed) return;
       
-      debugPrint('🔔 Handling new notification: $data');
+      debugPrint('🔔 Handling new notification (WS): $data');
+
+      final id = data['id'] ?? '';
+
+      // Deduplication: skip if already processed by FCM
+      if (_processedIds.contains(id) || FirebaseMessagingService.isAlreadyProcessed(id)) {
+        debugPrint('🔔 Notification already processed (dedup), skipping: $id');
+        return;
+      }
+      _processedIds.add(id);
+      _trimProcessedIds();
       
       final notification = MeetingNotification(
-        id: data['id'] ?? '',
+        id: id,
         notificationId: data['notificationId'] ?? '',
         message: data['message'] ?? '',
         meetingDate: data['meetingDate'] ?? '',
@@ -172,7 +260,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       final currentState = state.value ?? const NotificationState();
       
       if (currentState.notifications.any((n) => n.id == notification.id)) {
-        debugPrint('🔔 Notification already exists, skipping');
+        debugPrint('🔔 Notification already in list, skipping');
         return;
       }
       
@@ -187,6 +275,13 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         notifications: trimmedNotifications,
         unreadCount: newUnreadCount,
       ));
+
+      // Show local notification with looping sound (if not already showing from FCM)
+      await LocalNotificationService.showWithLoopingSound(
+        notificationId: id,
+        title: 'ແຈ້ງເຕືອນການປະຊຸມ',
+        body: notification.message,
+      );
 
       debugPrint('🔔 Added new notification, unread count: $newUnreadCount');
     } catch (e) {
@@ -205,6 +300,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
     debugPrint('🔔 ===== NOTIFICATION READ FROM WEB SOCKET =====');
     debugPrint('🔔 Notification ID: $notificationId');
+
+    // CRITICAL: Stop looping sound when another device marks as read
+    await LocalNotificationService.cancelRepeating();
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
@@ -227,6 +325,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
   Future<void> _handleAllNotificationsRead(Map<String, dynamic> data) async {
     debugPrint('🔔 ===== ALL NOTIFICATIONS READ FROM WEB SOCKET =====');
+
+    // CRITICAL: Stop looping sound when another device marks all as read
+    await LocalNotificationService.cancelAll();
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) => 
@@ -292,11 +393,19 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   Future<void> markAsRead(String notificationId) async {
     debugPrint('🔔 MARK AS READ STARTED: $notificationId');
 
+    // Stop sound immediately
+    await LocalNotificationService.cancelRepeating();
+
     if (_username == null) {
       debugPrint('❌ CANNOT MARK AS READ - USERNAME IS NULL');
       return;
     }
 
+    await _markAsReadInternal(notificationId);
+  }
+
+  /// Internal mark-as-read logic (reusable for terminated state + normal flow)
+  Future<void> _markAsReadInternal(String notificationId) async {
     try {
       debugPrint('🔔 UPDATING WEBSOCKET...');
       _webSocketService.markAsRead(notificationId);
@@ -329,6 +438,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
   Future<void> markAllAsRead() async {
     debugPrint('🔔 MARK ALL AS READ: Starting...');
+
+    // Stop all sounds immediately
+    await LocalNotificationService.cancelAll();
 
     if (_username == null) return;
 
@@ -386,6 +498,15 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     _connectWebSocket();
   }
 
+  /// Keep processed IDs set bounded
+  void _trimProcessedIds() {
+    if (_processedIds.length > 100) {
+      final list = _processedIds.toList();
+      _processedIds.clear();
+      _processedIds.addAll(list.sublist(list.length - 50));
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -395,11 +516,17 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     _retryTimer = null;
     _pollingTimer?.cancel();
     _pollingTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     
     _notificationSubscription?.cancel();
     _notificationSubscription = null;
     _connectionSubscription?.cancel();
     _connectionSubscription = null;
+    _fcmNotificationSubscription?.cancel();
+    _fcmNotificationSubscription = null;
+    _fcmReadSubscription?.cancel();
+    _fcmReadSubscription = null;
     
     _webSocketService.disconnect();
     
