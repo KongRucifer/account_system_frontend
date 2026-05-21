@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../app.dart';
+import '../../core/services/audio_loop_service.dart';
 import '../../core/services/firebase_messaging_service.dart';
 import '../../core/services/local_notification_service.dart';
 import '../../core/services/native_intent_service.dart';
@@ -278,7 +279,10 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         unreadCount: newUnreadCount,
       ));
 
-      // Show single notification (no loop)
+      // Start looping sound (works in foreground AND background via native service)
+      AudioLoopService.startLoop();
+
+      // Show local notification toast only if in foreground
       if (AppLifecycleTracker.isInForeground) {
         debugPrint('🔔 App is FOREGROUND → showing notification');
         await LocalNotificationService.showSingleNotification(
@@ -287,7 +291,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
           body: notification.message,
         );
       } else {
-        debugPrint('🔔 App is BACKGROUND → skipping local notification (FCM handles it)');
+        debugPrint('🔔 App is BACKGROUND → FCM handles notification toast');
       }
 
       debugPrint('🔔 Added new notification, unread count: $newUnreadCount');
@@ -308,8 +312,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     debugPrint('🔔 ===== NOTIFICATION READ FROM WEB SOCKET =====');
     debugPrint('🔔 Notification ID: $notificationId');
 
-    // CRITICAL: Stop ALL sounds when another device marks as read
-    await LocalNotificationService.cancelAll();
+    // NOTE: Sound does NOT stop here. Sound stops only when user explicitly
+    // taps notification toast or clicks "mark all read" button.
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
@@ -400,7 +404,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   Future<void> markAsRead(String notificationId) async {
     debugPrint('🔔 MARK AS READ STARTED: $notificationId');
 
-    // Stop ALL sounds and dismiss ALL notifications immediately
+    // Stop looping sound and dismiss notifications
+    await AudioLoopService.stopLoop();
     await LocalNotificationService.cancelAll();
 
     if (_username == null) {
@@ -446,7 +451,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   Future<void> markAllAsRead() async {
     debugPrint('🔔 MARK ALL AS READ: Starting...');
 
-    // Stop all sounds immediately
+    // Stop looping sound and dismiss all notifications
+    await AudioLoopService.stopLoop();
     await LocalNotificationService.cancelAll();
 
     if (_username == null) return;

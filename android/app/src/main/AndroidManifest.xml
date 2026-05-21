@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Required for foreground service to keep app alive for background notifications -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:usesCleartextTraffic="true"
@@ -36,14 +37,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Required for FCM to receive messages in background/terminated state -->
+        <!-- Custom FCM service that starts sound loop on message received -->
         <service
-            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            android:name=".MyFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!-- Sound loop foreground service -->
+        <service
+            android:name=".SoundLoopService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <!-- Default FCM channel: ensures OS-level notifications use our sound channel -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

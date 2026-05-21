@@ -34,10 +34,13 @@ class MainActivity : FlutterActivity() {
             if (notificationId != null) {
                 Log.d("NOTIFICATION_INTENT", "App opened from terminated notification: $notificationId")
                 
+                // Stop looping sound service
+                SoundLoopService.stop(this)
+                
                 // Stop any ongoing notification sounds immediately
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.cancelAll()
-                Log.d("NOTIFICATION_INTENT", "Cancelled all notifications to stop sound")
+                Log.d("NOTIFICATION_INTENT", "Stopped sound + cancelled all notifications")
                 
                 // Store for Flutter to process when ready
                 intent.putExtra("pendingNotificationId", notificationId)
@@ -59,6 +62,16 @@ class MainActivity : FlutterActivity() {
                         intent.removeExtra("pendingNotificationId")
                         Log.d("NOTIFICATION_INTENT", "Retrieved and cleared pending notification: $pendingId")
                     }
+                }
+                "startSoundLoop" -> {
+                    Log.d("SOUND_LOOP", "Starting sound loop service from Flutter")
+                    SoundLoopService.start(this)
+                    result.success(true)
+                }
+                "stopSoundLoop" -> {
+                    Log.d("SOUND_LOOP", "Stopping sound loop service from Flutter")
+                    SoundLoopService.stop(this)
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()

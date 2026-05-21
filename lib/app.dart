@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/services/audio_loop_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'features/notifications/notification_provider.dart';
 import 'features/notifications/notification_service.dart';
@@ -117,11 +118,17 @@ class _AppLifecycleObserverState extends ConsumerState<_AppLifecycleObserver>
     switch (state) {
       case AppLifecycleState.resumed:
         AppLifecycleTracker._setForeground(true);
-        debugPrint('📱 App RESUMED — reconnecting WebSocket + syncing notifications');
+        debugPrint('📱 App RESUMED — reconnecting WebSocket');
         // Reconnect WebSocket (it may have been paused/killed by OS)
         NotificationWebSocketService().reconnect();
-        // Sync notifications from API (authoritative count)
-        ref.read(notificationsProvider.notifier).refresh();
+        // Delay refresh to avoid racing with mark-as-read API call
+        // (notification tap triggers mark-as-read, then app resumes)
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            debugPrint('📱 App RESUMED — delayed refresh');
+            ref.read(notificationsProvider.notifier).refresh();
+          }
+        });
         break;
       case AppLifecycleState.paused:
         AppLifecycleTracker._setForeground(false);
@@ -133,8 +140,9 @@ class _AppLifecycleObserverState extends ConsumerState<_AppLifecycleObserver>
       case AppLifecycleState.detached:
         AppLifecycleTracker._setForeground(false);
         debugPrint('📱 App DETACHED');
-        // Cleanup any stuck sounds
+        // Cleanup notifications and stop sound
         LocalNotificationService.cancelAll();
+        AudioLoopService.stopLoop();
         break;
       default:
         break;

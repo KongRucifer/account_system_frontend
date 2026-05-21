@@ -50,6 +50,9 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     
+    // AndroidX Core (for NotificationCompat in SoundLoopService)
+    implementation("androidx.core:core-ktx:1.12.0")
+    
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     

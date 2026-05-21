@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/api_constants.dart';
+import 'audio_loop_service.dart';
 import 'device_id_service.dart';
 import 'local_notification_service.dart';
 import 'native_intent_service.dart';
@@ -237,12 +238,13 @@ class FirebaseMessagingService {
       _processedIds.add(notificationId);
       _trimProcessedIds();
 
-      // Show single notification (no loop)
+      // Show notification toast + start looping sound
       await LocalNotificationService.showSingleNotification(
         notificationId: notificationId,
         title: title,
         body: body,
       );
+      AudioLoopService.startLoop();
 
       // Notify providers about new notification
       _notificationController.add({
@@ -270,12 +272,11 @@ class FirebaseMessagingService {
     debugPrint('👆 [STEP 3] notificationId = "$notificationId"');
 
     if (notificationId.isNotEmpty) {
-      debugPrint('👆 [STEP 4] Calling LocalNotificationService.cancelAll()...');
-      // CRITICAL: Stop ALL sounds and dismiss ALL notifications
-      // Must use cancelAll() because background isolate may have created
-      // notifications with different IDs that cancelRepeating() won't clear.
+      debugPrint('👆 [STEP 4] Stopping audio loop + dismissing notifications...');
+      // Stop looping sound and dismiss all notifications
+      AudioLoopService.stopLoop();
       LocalNotificationService.cancelAll();
-      debugPrint('👆 [STEP 5] cancelAll() called, adding to _readController...');
+      debugPrint('👆 [STEP 5] Done, adding to _readController...');
       _readController.add(notificationId);
       debugPrint('👆 [STEP 6] ✅ Marked for read: $notificationId');
     } else {
@@ -297,7 +298,8 @@ class FirebaseMessagingService {
             '📨 FOUND TERMINATED STATE NOTIFICATION (FCM): $notificationId');
         _pendingNotificationId = notificationId;
         _isFromTerminatedNotification = true;
-        // Dismiss notification
+        // Stop sound and dismiss notification
+        await AudioLoopService.stopLoop();
         await LocalNotificationService.cancelAll();
         _readController.add(notificationId);
         return;
@@ -311,6 +313,7 @@ class FirebaseMessagingService {
           '📨 FOUND TERMINATED STATE NOTIFICATION (Native): $nativeId');
       _pendingNotificationId = nativeId;
       _isFromTerminatedNotification = true;
+      await AudioLoopService.stopLoop();
       await LocalNotificationService.cancelAll();
       _readController.add(nativeId);
     }
@@ -321,8 +324,9 @@ class FirebaseMessagingService {
     debugPrint('👆 [LOCAL_TAP] ===== LOCAL NOTIFICATION TAPPED =====');
     debugPrint('👆 [LOCAL_TAP] payload: "$payload"');
     if (payload.isNotEmpty) {
-      debugPrint('👆 [LOCAL_TAP] Stopping ALL sounds + emitting read event...');
-      // Stop ALL looping sounds and dismiss ALL notifications
+      debugPrint('👆 [LOCAL_TAP] Stopping audio loop + emitting read event...');
+      // Stop looping sound and dismiss all notifications
+      AudioLoopService.stopLoop();
       LocalNotificationService.cancelAll();
       // Emit mark-as-read event
       _readController.add(payload);
