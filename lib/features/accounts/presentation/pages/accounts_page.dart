@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/language_provider.dart';
 import '../../../../core/widgets/lang_toggle_button.dart';
-import '../../../notifications/notification_badge.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../notifications/notification_provider.dart';
 import '../../data/models/account_model.dart';
 import '../controllers/account_controller.dart';
 
@@ -48,9 +48,9 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
           fit: BoxFit.contain,
         ),
         actions: [
-          const NotificationBadge(),
           const LangToggleButton(),
           const SizedBox(width: 4),
+          _NotificationBell(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: s.logout,
@@ -238,6 +238,25 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                           ),
                   ],
                 ),
+    );
+  }
+}
+
+class _NotificationBell extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadCountProvider);
+
+    return IconButton(
+      icon: Badge(
+        isLabelVisible: unreadCount > 0,
+        label: Text(
+          unreadCount > 99 ? '99+' : '$unreadCount',
+          style: const TextStyle(fontSize: 10),
+        ),
+        child: const Icon(Icons.notifications_outlined),
+      ),
+      onPressed: () => context.push('/notifications'),
     );
   }
 }

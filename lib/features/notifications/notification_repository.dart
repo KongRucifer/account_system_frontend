@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import '../../core/constants/api_constants.dart';
 import 'notification_model.dart';
 
 class NotificationRepository {
@@ -80,37 +79,6 @@ class NotificationRepository {
       return response.data as Map<String, dynamic>;
     } catch (e) {
       throw Exception('Failed to preview meetings: $e');
-    }
-  }
-
-  /// ປິດການໃຊ້ FCM token ຂອງ device ນີ້ (ເອີ້ນຕອນ logout)
-  Future<void> deactivateFcmToken(String username, String deviceId) async {
-    try {
-      await _dio.patch(
-        '/notifications/fcm-token/deactivate',
-        data: {
-          'username': username,
-          'deviceId': deviceId,
-        },
-      );
-    } catch (e) {
-      throw Exception('Failed to deactivate FCM token: $e');
-    }
-  }
-
-  /// ບັນທຶກ FCM token ແລະ device ID ຂອງ user ໄວ້ໃນຖານຂໍ້ມູນ
-  Future<void> updateFcmToken(String username, String deviceId, String fcmToken) async {
-    try {
-      await _dio.patch(
-        ApiConstants.updateFcmToken,
-        data: {
-          'username': username,
-          'deviceId': deviceId,
-          'fcmToken': fcmToken,
-        },
-      );
-    } catch (e) {
-      throw Exception('Failed to update FCM token: $e');
     }
   }
 

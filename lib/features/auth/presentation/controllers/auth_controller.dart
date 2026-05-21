@@ -1,10 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/core_providers.dart';
-import '../../../../core/services/firebase_messaging_service.dart';
 import '../../../../core/services/storage_service.dart';
-import '../../../notifications/fcm_registration_service.dart';
-import '../../../notifications/notification_repository.dart';
 import '../../data/models/login_request.dart';
 import '../../data/models/user.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -44,9 +41,8 @@ class AuthState {
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   final StorageService _storage;
-  final FcmRegistrationService _fcmService;
 
-  AuthController(this._repository, this._storage, this._fcmService) : super(AuthState());
+  AuthController(this._repository, this._storage) : super(AuthState());
 
   Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -72,12 +68,6 @@ class AuthController extends StateNotifier<AuthState> {
       // Save user data
       await _storage.saveUser(user.toJson());
 
-      // Initialize Firebase Messaging (after login so we have username)
-      await FirebaseMessagingService().initialize();
-
-      // Register FCM token with backend
-      await _fcmService.registerToken();
-
       state = state.copyWith(user: user, isLoading: false);
       
       // 🔄 Refresh notification provider after successful login
@@ -94,12 +84,6 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    // Stop any repeating notification timer before clearing state
-    await LocalNotificationService.cancelRepeating();
-
-    // Deactivate FCM token for this device only (B, C devices stay active)
-    await _fcmService.deactivateToken();
-
     // Call logout endpoint to revoke refresh token on server
     await _repository.logout();
     
@@ -202,8 +186,5 @@ class AuthController extends StateNotifier<AuthState> {
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   final storage = ref.watch(storageServiceProvider);
-  final dioClient = ref.watch(dioClientProvider);
-  final notificationRepository = NotificationRepository(dioClient.dio);
-  final fcmService = FcmRegistrationService(notificationRepository, storage);
-  return AuthController(repository, storage, fcmService);
+  return AuthController(repository, storage);
 });

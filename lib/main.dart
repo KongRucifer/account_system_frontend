@@ -1,15 +1,10 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/providers/core_providers.dart';
-import 'core/services/firebase_messaging_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/app_logger.dart';
-import 'firebase_options.dart';
 
 void main() async {
   try {
@@ -29,25 +24,6 @@ void main() async {
     // Set instance for provider to use (singleton pattern)
     setStorageServiceInstance(storage);
     
-    // Initialize Firebase with explicit options (required for release builds)
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    AppLogger.log('✅ Firebase initialized');
-    
-    // Set background message handler (required for background notifications)
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    AppLogger.log('✅ Background handler set');
-    
-    // Initialize local notifications
-    await LocalNotificationService.initialize();
-    AppLogger.log('✅ Local notifications initialized');
-
-    // Initialize Firebase Messaging — sets onMessage listener, requests FCM permission, gets token
-    await FirebaseMessagingService().initialize();
-    AppLogger.log('✅ Firebase Messaging initialized');
-
-    // Explicitly request notification permission (shows dialog on Android 13+)
-    await _requestNotificationPermission();
-    
     AppLogger.log('🎬 Running app...');
     runApp(
       const ProviderScope(
@@ -61,19 +37,3 @@ void main() async {
   }
 }
 
-/// Request notification permission explicitly (shows dialog on Android 13+)
-Future<void> _requestNotificationPermission() async {
-  try {
-    final androidPlugin = LocalNotificationService.notificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    
-    if (androidPlugin != null) {
-      // For Android 13+ (API 33+), this shows the permission dialog
-      final granted = await androidPlugin.requestNotificationsPermission();
-      AppLogger.log('🔔 Notification permission dialog shown');
-      AppLogger.log('🔔 Permission result: ${granted == true ? 'GRANTED' : 'DENIED'}');
-    }
-  } catch (e) {
-    AppLogger.log('❌ Error requesting notification permission: $e');
-  }
-}
