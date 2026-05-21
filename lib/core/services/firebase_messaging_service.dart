@@ -53,8 +53,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
   await prefs.setStringList('bg_processed_ids', processed);
 
-  // Show notification with looping sound
-  await LocalNotificationService.showWithLoopingSound(
+  // IMPORTANT: Do NOT start a looping timer here!
+  // Background handler runs in a SEPARATE Dart isolate.
+  // Timers here cannot be cancelled from the main isolate.
+  // Instead, show a single notification (Android channel plays sound once).
+  // The main isolate will handle looping when app is brought to foreground.
+  debugPrint('📨 [BG HANDLER] Showing single notification (no loop in BG isolate)');
+  await LocalNotificationService.showSingleNotification(
     notificationId: notificationId,
     title: title,
     body: body,
@@ -103,15 +108,17 @@ class FirebaseMessagingService {
 
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    debugPrint('🔥 [INIT] onMessage listener registered');
 
     // Handle notification tap when app is in background
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+    debugPrint('🔥 [INIT] onMessageOpenedApp listener registered');
 
     // Check if app was launched from a terminated-state notification
     await _checkTerminatedLaunch();
 
-    // Cleanup any orphaned sound sessions from previous runs
-    await LocalNotificationService.cleanupOrphanedSessions();
+    // Cancel any leftover notifications from previous runs
+    await LocalNotificationService.cancelAll();
 
     // Listen for local notification taps
     LocalNotificationService.onTap.listen(_handleNotificationTap);
@@ -230,8 +237,8 @@ class FirebaseMessagingService {
       _processedIds.add(notificationId);
       _trimProcessedIds();
 
-      // Show local notification with looping sound
-      await LocalNotificationService.showWithLoopingSound(
+      // Show single notification (no loop)
+      await LocalNotificationService.showSingleNotification(
         notificationId: notificationId,
         title: title,
         body: body,
@@ -255,15 +262,25 @@ class FirebaseMessagingService {
   /// Handle notification tap when app was in background
   static void _handleMessageOpenedApp(RemoteMessage message) {
     debugPrint('👆 ===== APP OPENED FROM NOTIFICATION (BACKGROUND) =====');
+    debugPrint('👆 [STEP 1] message.data = ${message.data}');
+    debugPrint('👆 [STEP 2] message.notification = ${message.notification?.title} / ${message.notification?.body}');
 
     final data = message.data;
     final notificationId = data['notificationId'] ?? '';
+    debugPrint('👆 [STEP 3] notificationId = "$notificationId"');
 
     if (notificationId.isNotEmpty) {
-      // CRITICAL: Stop sound immediately
-      LocalNotificationService.cancelRepeating();
+      debugPrint('👆 [STEP 4] Calling LocalNotificationService.cancelAll()...');
+      // CRITICAL: Stop ALL sounds and dismiss ALL notifications
+      // Must use cancelAll() because background isolate may have created
+      // notifications with different IDs that cancelRepeating() won't clear.
+      LocalNotificationService.cancelAll();
+      debugPrint('👆 [STEP 5] cancelAll() called, adding to _readController...');
       _readController.add(notificationId);
-      debugPrint('✅ Marked for read: $notificationId');
+      debugPrint('👆 [STEP 6] ✅ Marked for read: $notificationId');
+    } else {
+      debugPrint('👆 [STEP 4] ⚠️ notificationId is EMPTY! Cannot process.');
+      debugPrint('👆 [STEP 4] Full data keys: ${data.keys.toList()}');
     }
   }
 
@@ -280,8 +297,8 @@ class FirebaseMessagingService {
             '📨 FOUND TERMINATED STATE NOTIFICATION (FCM): $notificationId');
         _pendingNotificationId = notificationId;
         _isFromTerminatedNotification = true;
-        // Stop sound immediately
-        await LocalNotificationService.cancelRepeating();
+        // Dismiss notification
+        await LocalNotificationService.cancelAll();
         _readController.add(notificationId);
         return;
       }
@@ -294,19 +311,24 @@ class FirebaseMessagingService {
           '📨 FOUND TERMINATED STATE NOTIFICATION (Native): $nativeId');
       _pendingNotificationId = nativeId;
       _isFromTerminatedNotification = true;
-      await LocalNotificationService.cancelRepeating();
+      await LocalNotificationService.cancelAll();
       _readController.add(nativeId);
     }
   }
 
-  /// Handle local notification tap
+  /// Handle local notification tap (flutter_local_notifications callback)
   static void _handleNotificationTap(String payload) {
-    debugPrint('👆 Notification tapped, payload: $payload');
+    debugPrint('👆 [LOCAL_TAP] ===== LOCAL NOTIFICATION TAPPED =====');
+    debugPrint('👆 [LOCAL_TAP] payload: "$payload"');
     if (payload.isNotEmpty) {
-      // Stop looping sound
-      LocalNotificationService.cancelRepeating();
+      debugPrint('👆 [LOCAL_TAP] Stopping ALL sounds + emitting read event...');
+      // Stop ALL looping sounds and dismiss ALL notifications
+      LocalNotificationService.cancelAll();
       // Emit mark-as-read event
       _readController.add(payload);
+      debugPrint('👆 [LOCAL_TAP] Done.');
+    } else {
+      debugPrint('👆 [LOCAL_TAP] ⚠️ Payload is empty, cannot process.');
     }
   }
 

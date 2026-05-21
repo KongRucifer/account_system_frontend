@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../app.dart';
 import '../../core/services/firebase_messaging_service.dart';
 import '../../core/services/local_notification_service.dart';
 import '../../core/services/native_intent_service.dart';
@@ -177,7 +178,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     final pendingId = await NativeIntentService.getPendingNotificationId();
     if (pendingId != null && pendingId.isNotEmpty) {
       debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION: $pendingId');
-      await LocalNotificationService.cancelRepeating();
+      await LocalNotificationService.cancelAll();
       if (_username != null) {
         await _markAsReadInternal(pendingId);
       }
@@ -188,7 +189,7 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     final fcmPendingId = FirebaseMessagingService.consumePendingNotificationId();
     if (fcmPendingId != null && fcmPendingId.isNotEmpty) {
       debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION (FCM): $fcmPendingId');
-      await LocalNotificationService.cancelRepeating();
+      await LocalNotificationService.cancelAll();
       if (_username != null) {
         await _markAsReadInternal(fcmPendingId);
       }
@@ -215,7 +216,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     // When user taps a notification (foreground or background)
     _fcmReadSubscription = FirebaseMessagingService.onMarkAsRead.listen((notificationId) {
       if (_isDisposed) return;
-      debugPrint('🔔 FCM tap → marking as read: $notificationId');
+      debugPrint('🔔 [FCM_READ_STREAM] Received tap event for: $notificationId');
+      debugPrint('🔔 [FCM_READ_STREAM] _username = $_username, _isDisposed = $_isDisposed');
       markAsRead(notificationId);
     });
   }
@@ -276,12 +278,17 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         unreadCount: newUnreadCount,
       ));
 
-      // Show local notification with looping sound (if not already showing from FCM)
-      await LocalNotificationService.showWithLoopingSound(
-        notificationId: id,
-        title: 'ແຈ້ງເຕືອນການປະຊຸມ',
-        body: notification.message,
-      );
+      // Show single notification (no loop)
+      if (AppLifecycleTracker.isInForeground) {
+        debugPrint('🔔 App is FOREGROUND → showing notification');
+        await LocalNotificationService.showSingleNotification(
+          notificationId: id,
+          title: 'ແຈ້ງເຕືອນການປະຊຸມ',
+          body: notification.message,
+        );
+      } else {
+        debugPrint('🔔 App is BACKGROUND → skipping local notification (FCM handles it)');
+      }
 
       debugPrint('🔔 Added new notification, unread count: $newUnreadCount');
     } catch (e) {
@@ -301,8 +308,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
     debugPrint('🔔 ===== NOTIFICATION READ FROM WEB SOCKET =====');
     debugPrint('🔔 Notification ID: $notificationId');
 
-    // CRITICAL: Stop looping sound when another device marks as read
-    await LocalNotificationService.cancelRepeating();
+    // CRITICAL: Stop ALL sounds when another device marks as read
+    await LocalNotificationService.cancelAll();
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
@@ -393,8 +400,8 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   Future<void> markAsRead(String notificationId) async {
     debugPrint('🔔 MARK AS READ STARTED: $notificationId');
 
-    // Stop sound immediately
-    await LocalNotificationService.cancelRepeating();
+    // Stop ALL sounds and dismiss ALL notifications immediately
+    await LocalNotificationService.cancelAll();
 
     if (_username == null) {
       debugPrint('❌ CANNOT MARK AS READ - USERNAME IS NULL');

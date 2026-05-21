@@ -75,6 +75,19 @@ class MyApp extends ConsumerWidget {
   }
 }
 
+/// Static tracker for app lifecycle state.
+/// Used by notification provider to skip showing local notifications when app is paused
+/// (FCM background handler takes care of that case instead).
+class AppLifecycleTracker {
+  static bool _isInForeground = true;
+  static bool get isInForeground => _isInForeground;
+
+  static void _setForeground(bool value) {
+    _isInForeground = value;
+    debugPrint('📱 AppLifecycleTracker: isInForeground = $value');
+  }
+}
+
 /// Observes app lifecycle to reconnect WebSocket and sync notifications on resume.
 class _AppLifecycleObserver extends ConsumerStatefulWidget {
   final Widget child;
@@ -103,6 +116,7 @@ class _AppLifecycleObserverState extends ConsumerState<_AppLifecycleObserver>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        AppLifecycleTracker._setForeground(true);
         debugPrint('📱 App RESUMED — reconnecting WebSocket + syncing notifications');
         // Reconnect WebSocket (it may have been paused/killed by OS)
         NotificationWebSocketService().reconnect();
@@ -110,15 +124,17 @@ class _AppLifecycleObserverState extends ConsumerState<_AppLifecycleObserver>
         ref.read(notificationsProvider.notifier).refresh();
         break;
       case AppLifecycleState.paused:
+        AppLifecycleTracker._setForeground(false);
         debugPrint('📱 App PAUSED');
         break;
       case AppLifecycleState.inactive:
         debugPrint('📱 App INACTIVE');
         break;
       case AppLifecycleState.detached:
+        AppLifecycleTracker._setForeground(false);
         debugPrint('📱 App DETACHED');
         // Cleanup any stuck sounds
-        LocalNotificationService.cancelRepeating();
+        LocalNotificationService.cancelAll();
         break;
       default:
         break;
