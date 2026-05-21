@@ -176,3 +176,4 @@ Already handled by the audioplayers package.
 **Build errors:**
 - Run `flutter pub get` to install audioplayers
 - Ensure minimum SDK versions are met
+- Kill app from recent apps

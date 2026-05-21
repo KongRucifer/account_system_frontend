@@ -7,12 +7,64 @@ import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val NOTIFICATION_CHANNEL = "com.example.frontend_account_system/notifications"
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createNotificationChannel()
+        
+        // CRITICAL: Handle notification intent when app is opened from terminated state
+        handleNotificationIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+    
+    private fun handleNotificationIntent(intent: android.content.Intent?) {
+        if (intent != null && intent.extras != null) {
+            val notificationId = intent.extras?.getString("notificationId")
+            if (notificationId != null) {
+                Log.d("NOTIFICATION_INTENT", "App opened from terminated notification: $notificationId")
+                
+                // Stop any ongoing notification sounds immediately
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.cancelAll()
+                Log.d("NOTIFICATION_INTENT", "Cancelled all notifications to stop sound")
+                
+                // Store for Flutter to process when ready
+                intent.putExtra("pendingNotificationId", notificationId)
+            }
+        }
+    }
+    
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        
+        // Set up method channel for Flutter to get pending notification data
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getPendingNotificationId" -> {
+                    val pendingId = intent.getStringExtra("pendingNotificationId")
+                    result.success(pendingId)
+                    if (pendingId != null) {
+                        // Clear after retrieving
+                        intent.removeExtra("pendingNotificationId")
+                        Log.d("NOTIFICATION_INTENT", "Retrieved and cleared pending notification: $pendingId")
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
     }
 
     private fun createNotificationChannel() {

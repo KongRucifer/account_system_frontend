@@ -616,15 +616,15 @@ class _TransactionCard extends ConsumerWidget {
         badgeLabel  = 'ຊຳລະຕົ້ນທຶນ';
         break;
       case '1001':
-        badgeBg     = Colors.orange.shade100;
-        badgeFg     = Colors.orange.shade800;
-        amountColor = Colors.orange.shade700;
+       badgeBg     = Colors.blue.shade100;
+        badgeFg     = Colors.blue.shade800;
+        amountColor = Colors.blue.shade700;
         badgeLabel  = 'ຊຳລະດອກເບ້ຍ';
         break;
       case '1201':
-        badgeBg     = Colors.green.shade100;
-        badgeFg     = Colors.green.shade800;
-        amountColor = Colors.green.shade700;
+        badgeBg     = Colors.orange.shade100;
+        badgeFg     = Colors.orange.shade800;
+        amountColor = Colors.orange.shade700;
         badgeLabel  = 'ປ່ອຍກູ້';
         break;
      

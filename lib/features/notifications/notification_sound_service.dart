@@ -10,22 +10,49 @@ class NotificationSoundService {
   bool _isPlaying = false;
   String? _currentNotificationId;
 
-  /// เสียงแจ้งเตือนใช้ Android Notification Channel แทน (res/raw/meeting_sound.wav)
-  /// method นี้คงไว้เพื่อ compatibility กับ notification_provider.dart
+  /// Play notification sound for foreground state
+  /// Background sound is handled by OS notification channel
   Future<void> playNotificationSound(String notificationId) async {
-    debugPrint('🔊 Sound handled by Android Notification Channel');
+    if (_isPlaying && _currentNotificationId == notificationId) return;
+    
+    try {
+      _currentNotificationId = notificationId;
+      _isPlaying = true;
+      
+      // Set loop mode for continuous sound
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      
+      // Play sound from assets (ensure meeting_sound.wav exists in assets/sounds/)
+      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
+      
+      debugPrint('🔊 [SoundService] Started playing sound for: $notificationId');
+    } catch (e) {
+      debugPrint('❌ [SoundService] Error playing sound: $e');
+      _isPlaying = false;
+    }
   }
 
-  /// หยุดเสียง (no-op เพราะเสียงจัดการโดย OS notification channel)
+  /// Stop notification sound immediately
   Future<void> stopNotificationSound() async {
-    _isPlaying = false;
-    _currentNotificationId = null;
-    debugPrint('🔇 stopNotificationSound called (no-op)');
+    try {
+      await _audioPlayer.stop();
+      _isPlaying = false;
+      _currentNotificationId = null;
+      debugPrint('🔇 [SoundService] Sound stopped');
+    } catch (e) {
+      debugPrint('❌ [SoundService] Error stopping sound: $e');
+    }
   }
 
-  /// no-op — เสียงจัดการโดย OS notification channel
+  /// Play short notification sound (single play)
   Future<void> playShortNotificationSound() async {
-    debugPrint('🔊 playShortNotificationSound called (no-op)');
+    try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.release);
+      await _audioPlayer.play(AssetSource('sounds/meeting_sound.wav'));
+      debugPrint('🔊 [SoundService] Short notification sound played');
+    } catch (e) {
+      debugPrint('❌ [SoundService] Error playing short sound: $e');
+    }
   }
 
   /// หยุดเสียงเมื่อ mark as read (ไม่เล่นเสียงเพิ่ม)

@@ -1,16 +1,16 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../../../core/services/storage_service.dart';
-import '../../../../core/providers/core_providers.dart';
+import '../../core/services/storage_service.dart';
+import '../../core/services/native_intent_service.dart';
+import '../../core/providers/core_providers.dart';
 import 'notification_model.dart';
 import 'notification_repository.dart';
 import 'notification_service.dart';
 import 'notification_sound_service.dart';
-import '../../../../core/services/firebase_messaging_service.dart';
+import '../../core/services/firebase_messaging_service.dart';
 
 part 'notification_provider.freezed.dart';
 
@@ -66,7 +66,10 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   StreamSubscription? _notificationSubscription;
   StreamSubscription? _connectionSubscription;
   Timer? _pollingTimer;
+  Timer? _retryTimer;
   String? _username;
+  bool _isInitializing = false;
+  bool _isDisposed = false;
 
   NotificationsNotifier({
     required NotificationRepository repository,
@@ -80,7 +83,22 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> _initialize() async {
+    // Prevent concurrent initialization
+    if (_isInitializing) {
+      debugPrint('🔄 NotificationProvider: Initialization already in progress, skipping...');
+      return;
+    }
+    
+    // Cancel any pending retry timer
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    
+    _isInitializing = true;
+    
     try {
+      // Check if disposed before proceeding
+      if (_isDisposed) return;
+      
       final userData = await StorageService().getUser();
       _username = userData?['username'] as String?;
       
@@ -90,48 +108,75 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       if (_username == null) {
         // ยังไม่ login - แสดง state ว่าง ไม่ใช่ error
         debugPrint('❌ NotificationProvider: username is null, user not logged in');
-        state = const AsyncValue.data(NotificationState(
-          notifications: [],
-          unreadCount: 0,
-          isLoading: false,
-        ));
+        if (!_isDisposed) {
+          state = const AsyncValue.data(NotificationState(
+            notifications: [],
+            unreadCount: 0,
+            isLoading: false,
+          ));
+        }
         
-        // Retry after 1 second in case user just logged in (faster retry)
-        Future.delayed(const Duration(seconds: 1), () {
-          debugPrint('🔄 NotificationProvider: Retrying to get user data...');
-          _initialize();
+        // Retry after 3 seconds (slower to reduce memory churn)
+        _retryTimer = Timer(const Duration(seconds: 3), () {
+          if (!_isDisposed && !_isInitializing) {
+            debugPrint('🔄 NotificationProvider: Retrying to get user data...');
+            _initialize();
+          }
         });
         return;
       }
 
       debugPrint('✅ NotificationProvider: username = $_username, loading notifications');
+      
+      // CRITICAL: Clear any old stop signals and lingering notifications on fresh start
+      await LocalNotificationService.clearStopSignal();
+      await LocalNotificationService.cancelAll();
+      
+      // CRITICAL: Check for terminated state notification before loading notifications
+      await _checkForTerminatedStateNotification();
+      
+      if (_isDisposed) return;
+      
       // Load initial notifications
       await loadNotifications();
 
+      if (_isDisposed) return;
+      
       // Register tap callback: tapping the toast notification marks it as read
       setNotificationTapCallback((notificationId) async {
         debugPrint('👆 Toast tapped: $notificationId — marking as read');
         await markAsRead(notificationId);
       });
 
-      // Connect WebSocket
+      // Connect WebSocket (cancels existing first)
       _connectWebSocket();
 
-      // Start polling as fallback
+      // Start polling as fallback (cancels existing first)
       _startPolling();
     } catch (e, stack) {
       debugPrint('❌ NotificationProvider initialization error: $e');
-      state = AsyncValue.error(e, stack);
+      if (!_isDisposed) {
+        state = AsyncValue.error(e, stack);
+      }
+    } finally {
+      _isInitializing = false;
     }
   }
 
   void _connectWebSocket() {
+    // Cancel existing subscriptions before creating new ones
+    _notificationSubscription?.cancel();
+    _connectionSubscription?.cancel();
+    _notificationSubscription = null;
+    _connectionSubscription = null;
+    
     _webSocketService.connect();
 
     // Listen to notifications
     _notificationSubscription = _webSocketService.notificationStream.listen((event) async {
+      if (_isDisposed) return;
       if (event['type'] == 'new_notification') {
-        _handleNewNotification(event['data']);
+        await _handleNewNotification(event['data']);
       } else if (event['type'] == 'notification_read') {
         await _handleNotificationRead(event['data']);
       } else if (event['type'] == 'all_notifications_read') {
@@ -141,13 +186,16 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
     // Listen to connection status
     _connectionSubscription = _webSocketService.connectionStream.listen((isConnected) {
+      if (_isDisposed) return;
       final currentState = state.value ?? const NotificationState();
       state = AsyncValue.data(currentState.copyWith(isWebSocketConnected: isConnected));
     });
   }
 
-  void _handleNewNotification(Map<String, dynamic> data) {
+  Future<void> _handleNewNotification(Map<String, dynamic> data) async {
     try {
+      if (_isDisposed) return;
+      
       debugPrint('🔔 Handling new notification: $data');
       
       final notification = MeetingNotification(
@@ -168,39 +216,65 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
         return;
       }
       
+      // Limit notifications list size to prevent memory bloat
+      final maxNotifications = 100;
       final updatedNotifications = [notification, ...currentState.notifications];
+      final trimmedNotifications = updatedNotifications.length > maxNotifications 
+          ? updatedNotifications.sublist(0, maxNotifications) 
+          : updatedNotifications;
       final newUnreadCount = currentState.unreadCount + 1;
       
       // Immediate state update for count
       state = AsyncValue.data(currentState.copyWith(
-        notifications: updatedNotifications,
+        notifications: trimmedNotifications,
         unreadCount: newUnreadCount,
       ));
 
       debugPrint('🔔 Added new notification, unread count: $newUnreadCount');
 
-      // 🔊 Play loop sound for new notification
-      _soundService.playNotificationSound(notification.id);
+      // 🔊 Show toast notification ONLY when app is in foreground
+      // Background notifications are handled by FCM background handler (single source of truth)
+      final isForeground = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      if (isForeground) {
+        await LocalNotificationService.showNotificationFromData(
+          title: 'ແຈ້ງເຕືອນການປະຊຸມ',
+          body: notification.message,
+          payload: {
+            'notificationId': notification.notificationId,
+            'id': notification.id,
+            'message': notification.message,
+          },
+        );
+      } else {
+        debugPrint('🔔 App in background - skipping WebSocket toast (FCM handles it)');
+      }
       
-      // Force UI update by ensuring state is set immediately
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          // Trigger a rebuild to ensure count updates immediately
-          state = AsyncValue.data(state.value!);
-        }
-      });
+      _soundService.playNotificationSound(notification.id);
     } catch (e) {
       debugPrint('Error handling new notification: $e');
     }
   }
 
   Future<void> _handleNotificationRead(Map<String, dynamic> data) async {
-    final notificationId = data['notificationId'] as String?;
-    if (notificationId == null) return;
+    // FIX: Extract notificationId from both root level and nested data structure
+    // WebSocket sends: { type: 'notification_read', data: { notificationId: '...' } }
+    final rawData = data['data'] as Map<String, dynamic>?;
+    final notificationId = data['notificationId'] as String? ?? 
+                         rawData?['notificationId'] as String? ??
+                         rawData?['id']?.toString();
+    if (notificationId == null) {
+      debugPrint('❌ _handleNotificationRead: notificationId is null, data: $data');
+      return;
+    }
 
-    // 🔇 Stop sound/timer immediately on ALL devices (A, B, C all stop when any one reads)
+    debugPrint('� ===== NOTIFICATION READ FROM WEB SOCKET =====');
+    debugPrint('🔔 Notification ID: $notificationId');
+    
+    // 🔇 STOP SOUND IMMEDIATELY ON THIS DEVICE
+    debugPrint('🔇 STOPPING SOUND ON THIS DEVICE...');
     await LocalNotificationService.cancelRepeating();
     await _soundService.stopNotificationSound();
+    debugPrint('🔇 SOUND STOPPED ON THIS DEVICE');
 
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) {
@@ -211,12 +285,13 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
     final newUnreadCount = updatedNotifications.where((n) => !n.isRead).length;
 
-    debugPrint('🔔 Notification read: $notificationId, unread: $newUnreadCount');
-    debugPrint('🔇 Sound stopped on all devices');
+    debugPrint('🔔 Updated unread count: $newUnreadCount');
+    debugPrint(' ===== NOTIFICATION READ COMPLETED =====');
 
-    state = AsyncValue.data(currentState.copyWith(
+    state = AsyncValue.data(NotificationState(
       notifications: updatedNotifications,
       unreadCount: newUnreadCount,
+      isWebSocketConnected: currentState.isWebSocketConnected,
     ));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -227,27 +302,39 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> _handleAllNotificationsRead(Map<String, dynamic> data) async {
+    debugPrint('🔔 ===== ALL NOTIFICATIONS READ FROM WEB SOCKET =====');
+    
+    // 🔇 STOP SOUND IMMEDIATELY ON THIS DEVICE
+    debugPrint('🔇 STOPPING ALL SOUNDS ON THIS DEVICE...');
+    await LocalNotificationService.cancelRepeating();
+    await LocalNotificationService.cancelAll();
+    await _soundService.stopNotificationSound();
+    debugPrint('🔇 ALL SOUNDS STOPPED ON THIS DEVICE');
+
     final currentState = state.value ?? const NotificationState();
     final updatedNotifications = currentState.notifications.map((n) => 
       n.copyWith(isRead: true, readAt: DateTime.now())
     ).toList();
 
-    debugPrint('🔔 All notifications marked as read via WebSocket');
+    debugPrint('🔔 Updated all notifications to read status');
 
-    state = AsyncValue.data(currentState.copyWith(
+    state = AsyncValue.data(NotificationState(
       notifications: updatedNotifications,
       unreadCount: 0,
+      isWebSocketConnected: currentState.isWebSocketConnected,
     ));
 
-    // 🔇 Stop all sounds on this device
-    await LocalNotificationService.cancelRepeating();
-    await _soundService.stopNotificationSound();
-    debugPrint('🔇 Stopped notification sound - all notifications read via WebSocket');
+    debugPrint(' ===== ALL NOTIFICATIONS READ COMPLETED =====');
   }
 
   void _startPolling() {
-    // Polling ทุก 30 วินาทีเป็น fallback
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Cancel existing timer before creating new one
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+    
+    // Polling ทุก 60 วินาทีเป็น fallback (reduced from 30s to save battery)
+    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (_isDisposed) return;
       if (!_webSocketService.isConnected && _username != null) {
         loadNotifications();
       }
@@ -288,25 +375,87 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
   }
 
   Future<void> markAsRead(String notificationId) async {
+    debugPrint('🔇 MARK AS READ STARTED: $notificationId');
+    
     // Always stop sound/timer regardless of username state
+    debugPrint('🔇 STOPPING SOUND AND TIMER...');
     await LocalNotificationService.cancelRepeating();
+    await LocalNotificationService.cancelAll();
     await _soundService.stopNotificationSound();
+    debugPrint('🔇 SOUND AND TIMER STOPPED');
 
-    if (_username == null) return;
+    if (_username == null) {
+      debugPrint('❌ CANNOT MARK AS READ - USERNAME IS NULL');
+      return;
+    }
 
     try {
+      debugPrint('🔇 UPDATING WEBSOCKET...');
       // Update WebSocket
       _webSocketService.markAsRead(notificationId);
 
+      debugPrint('🔇 UPDATING API...');
       // Update API
       await _repository.markAsRead(notificationId, _username!);
 
+      debugPrint('🔇 UPDATING LOCAL STATE...');
       // Update local state
       await _handleNotificationRead({'notificationId': notificationId});
 
+      debugPrint('✅ MARK AS READ COMPLETED: $notificationId');
     } catch (e) {
-      debugPrint('Error marking notification as read: $e');
+      debugPrint('❌ ERROR MARKING NOTIFICATION AS READ: $e');
     }
+  }
+
+  /// CRITICAL: Check for terminated state notification from native Android intent
+  /// Also checks the global _pendingNotificationId from onNotificationTap callback
+  Future<void> _checkForTerminatedStateNotification() async {
+    debugPrint('🔍 ===== CHECKING FOR TERMINATED STATE NOTIFICATION =====');
+    
+    String? pendingId;
+    
+    try {
+      // First check NativeIntentService
+      pendingId = await NativeIntentService.getPendingNotificationId();
+      
+      if (pendingId != null) {
+        debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION (NativeIntentService): $pendingId');
+      }
+    } catch (e) {
+      debugPrint('❌ ERROR CHECKING NativeIntentService: $e');
+    }
+    
+    // If no pending ID from native, check global variable (set by onNotificationTap)
+    if (pendingId == null) {
+      pendingId = pendingNotificationId;
+      if (pendingId != null) {
+        debugPrint('📨 FOUND TERMINATED STATE NOTIFICATION (global): $pendingId');
+        // Clear it so we don't process again
+        clearPendingNotificationId();
+      }
+    }
+    
+    if (pendingId != null) {
+      debugPrint('📨 MARKING AS READ IMMEDIATELY...');
+      
+      // Stop sound immediately
+      await LocalNotificationService.cancelRepeating();
+      await _soundService.stopNotificationSound();
+      
+      // Mark as read via API
+      if (_username != null) {
+        await markAsRead(pendingId);
+      } else {
+        debugPrint('⚠️ USERNAME NULL - CANNOT MARK AS READ');
+      }
+      
+      debugPrint('✅ TERMINATED STATE NOTIFICATION PROCESSED');
+    } else {
+      debugPrint('📨 NO TERMINATED STATE NOTIFICATION FOUND');
+    }
+    
+    debugPrint('🔍 ===== TERMINATED STATE CHECK COMPLETE =====');
   }
 
   Future<void> refresh() async {
@@ -319,13 +468,18 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       _username = newUsername;
     }
     
-    await loadNotifications();
+    if (_username != null) {
+      await loadNotifications();
+    }
   }
 
   Future<void> markAllAsRead() async {
-    // Always stop sound/timer regardless of username state
+    // Stop ALL sounds and notifications
+    debugPrint('🔇 MARK ALL AS READ: Stopping sounds...');
     await LocalNotificationService.cancelRepeating();
+    await LocalNotificationService.cancelAll();
     await _soundService.stopNotificationSound();
+    debugPrint('🔇 MARK ALL AS READ: Sounds stopped');
 
     if (_username == null) return;
 
@@ -342,9 +496,11 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
       final currentState = state.value ?? const NotificationState();
       final updatedNotifications = currentState.notifications.map((n) => n.copyWith(isRead: true, readAt: DateTime.now())).toList();
       
-      state = AsyncValue.data(currentState.copyWith(
+      // 🚀 [UI REFRESH FIX]: Create new NotificationState object to force Riverpod rebuild
+      state = AsyncValue.data(NotificationState(
         notifications: updatedNotifications,
         unreadCount: 0,
+        isWebSocketConnected: currentState.isWebSocketConnected,
       ));
 
       debugPrint('🔇 Cancelled repeating notification - all read');
@@ -369,16 +525,24 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
   /// Refresh after login - reinitialize with new username
   Future<void> refreshAfterLogin() async {
+    if (_isDisposed) return;
+    
     final userData = await StorageService().getUser();
     final newUsername = userData?['username'] as String?;
     
     if (newUsername == null) return;
     
-    // Update username and reinitialize
-    _username = newUsername;
-    await loadNotifications();
-    _connectWebSocket();
-    _startPolling();
+    // Update username and reinitialize if changed
+    if (newUsername != _username) {
+      _username = newUsername;
+      debugPrint('🔄 NotificationProvider: Username changed to $newUsername, reinitializing...');
+      // Full reinitialization
+      _isInitializing = false; // Reset flag to allow new init
+      await _initialize();
+    } else {
+      debugPrint('🔄 NotificationProvider: Same username, just reloading notifications');
+      await loadNotifications();
+    }
   }
 
   void reconnectWebSocket() {
@@ -388,12 +552,28 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<NotificationState>>
 
   @override
   void dispose() {
-    _notificationSubscription?.cancel();
-    _connectionSubscription?.cancel();
+    _isDisposed = true;
+    _isInitializing = false;
+    
+    // Cancel all timers
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _pollingTimer?.cancel();
-    _soundService.stopNotificationSound(); // 🔇 หยุดเสียงเมื่อ dispose
+    _pollingTimer = null;
+    
+    // Cancel all subscriptions
+    _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+    _connectionSubscription?.cancel();
+    _connectionSubscription = null;
+    
+    // Stop and dispose sound service
+    _soundService.stopNotificationSound();
     _soundService.dispose();
-    _webSocketService.dispose();
+    
+    // Disconnect WebSocket
+    _webSocketService.disconnect();
+    
     super.dispose();
   }
 

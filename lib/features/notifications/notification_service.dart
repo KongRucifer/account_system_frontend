@@ -80,15 +80,18 @@ class NotificationWebSocketService {
     });
 
     _socket?.on('notification_read', (data) {
-      debugPrint('✓ Notification marked as read: $data');
+      debugPrint('📨 NOTIFICATION READ RECEIVED FROM OTHER DEVICE: $data');
+      // FIX: Extract notificationId and put at root level for easier access
+      final Map<String, dynamic> readData = data is Map<String, dynamic> ? data : {};
       _notificationController.add({
         'type': 'notification_read',
-        'data': data,
+        'notificationId': readData['notificationId'] ?? readData['id']?.toString(),
+        'data': readData,
       });
     });
 
     _socket?.on('all_notifications_read', (data) {
-      debugPrint('✓ All notifications marked as read: $data');
+      debugPrint('📨 ALL NOTIFICATIONS READ RECEIVED FROM OTHER DEVICE: $data');
       _notificationController.add({
         'type': 'all_notifications_read',
         'data': data,
