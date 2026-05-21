@@ -27,13 +27,8 @@ enum NotificationSource {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('📨 [BG HANDLER] Received background FCM: ${message.data}');
 
-  // Initialize local notifications for background display
-  await LocalNotificationService.initialize();
-
   final data = message.data;
   final notificationId = data['notificationId'] ?? '';
-  final title = data['title'] ?? 'ແຈ້ງເຕືອນ';
-  final body = data['body'] ?? '';
 
   if (notificationId.isEmpty) {
     debugPrint('⚠️ [BG HANDLER] No notificationId in data, skipping');
@@ -54,17 +49,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
   await prefs.setStringList('bg_processed_ids', processed);
 
-  // IMPORTANT: Do NOT start a looping timer here!
-  // Background handler runs in a SEPARATE Dart isolate.
-  // Timers here cannot be cancelled from the main isolate.
-  // Instead, show a single notification (Android channel plays sound once).
-  // The main isolate will handle looping when app is brought to foreground.
-  debugPrint('📨 [BG HANDLER] Showing single notification (no loop in BG isolate)');
-  await LocalNotificationService.showSingleNotification(
-    notificationId: notificationId,
-    title: title,
-    body: body,
-  );
+  // NOTE: Notification display + sound loop are handled by native
+  // MyFirebaseMessagingService (with deleteIntent for swipe-dismiss).
+  // Do NOT show a Flutter local notification here to avoid duplicates.
+  debugPrint('📨 [BG HANDLER] Stored for dedup. Native handles notification + sound.');
 }
 
 /// Manages Firebase Cloud Messaging lifecycle.
@@ -262,7 +250,7 @@ class FirebaseMessagingService {
   }
 
   /// Handle notification tap when app was in background
-  static void _handleMessageOpenedApp(RemoteMessage message) {
+  static Future<void> _handleMessageOpenedApp(RemoteMessage message) async {
     debugPrint('👆 ===== APP OPENED FROM NOTIFICATION (BACKGROUND) =====');
     debugPrint('👆 [STEP 1] message.data = ${message.data}');
     debugPrint('👆 [STEP 2] message.notification = ${message.notification?.title} / ${message.notification?.body}');
@@ -274,8 +262,8 @@ class FirebaseMessagingService {
     if (notificationId.isNotEmpty) {
       debugPrint('👆 [STEP 4] Stopping audio loop + dismissing notifications...');
       // Stop looping sound and dismiss all notifications
-      AudioLoopService.stopLoop();
-      LocalNotificationService.cancelAll();
+      await AudioLoopService.stopLoop();
+      await LocalNotificationService.cancelAll();
       debugPrint('👆 [STEP 5] Done, adding to _readController...');
       _readController.add(notificationId);
       debugPrint('👆 [STEP 6] ✅ Marked for read: $notificationId');
@@ -320,14 +308,14 @@ class FirebaseMessagingService {
   }
 
   /// Handle local notification tap (flutter_local_notifications callback)
-  static void _handleNotificationTap(String payload) {
+  static Future<void> _handleNotificationTap(String payload) async {
     debugPrint('👆 [LOCAL_TAP] ===== LOCAL NOTIFICATION TAPPED =====');
     debugPrint('👆 [LOCAL_TAP] payload: "$payload"');
     if (payload.isNotEmpty) {
       debugPrint('👆 [LOCAL_TAP] Stopping audio loop + emitting read event...');
       // Stop looping sound and dismiss all notifications
-      AudioLoopService.stopLoop();
-      LocalNotificationService.cancelAll();
+      await AudioLoopService.stopLoop();
+      await LocalNotificationService.cancelAll();
       // Emit mark-as-read event
       _readController.add(payload);
       debugPrint('👆 [LOCAL_TAP] Done.');

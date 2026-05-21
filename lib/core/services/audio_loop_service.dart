@@ -35,12 +35,9 @@ class AudioLoopService {
   }
 
   /// Stop the looping sound by stopping the native Foreground Service.
+  /// Always sends stop command to native side, because the service may have
+  /// been started by MyFirebaseMessagingService (native) without Flutter knowing.
   static Future<void> stopLoop() async {
-    if (!_isPlaying) {
-      debugPrint('🔇 [AUDIO] Not playing, nothing to stop');
-      return;
-    }
-
     debugPrint('🔇 [AUDIO] Stopping native sound loop service...');
     try {
       await _channel.invokeMethod('stopSoundLoop');

@@ -17,6 +17,12 @@ import androidx.core.app.NotificationCompat
 /**
  * Foreground Service that loops meeting_sound.wav until explicitly stopped.
  * Works in both foreground and background states.
+ *
+ * Auto-stops when:
+ * - Flutter calls stopSoundLoop via MethodChannel
+ * - User swipes app from recents (onTaskRemoved)
+ * - User taps "close all" in recents (onTaskRemoved)
+ * - App process is killed (onDestroy)
  */
 class SoundLoopService : Service() {
     
@@ -26,19 +32,27 @@ class SoundLoopService : Service() {
         private const val NOTIFICATION_ID = 99999
         
         fun start(context: Context) {
-            val intent = Intent(context, SoundLoopService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, SoundLoopService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                Log.d(TAG, "Service start requested")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start service: ${e.message}")
             }
-            Log.d(TAG, "Service start requested")
         }
         
         fun stop(context: Context) {
-            val intent = Intent(context, SoundLoopService::class.java)
-            context.stopService(intent)
-            Log.d(TAG, "Service stop requested")
+            try {
+                val intent = Intent(context, SoundLoopService::class.java)
+                context.stopService(intent)
+                Log.d(TAG, "Service stop requested")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to stop service: ${e.message}")
+            }
         }
     }
     
@@ -60,13 +74,25 @@ class SoundLoopService : Service() {
         // Start looping sound
         startSound()
         
-        return START_STICKY
+        // NOT_STICKY: do NOT restart service if system kills it
+        return START_NOT_STICKY
     }
     
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed — stopping sound")
         stopSound()
         super.onDestroy()
+    }
+    
+    /**
+     * Called when user swipes the app from recents or taps "close all".
+     * Stop the sound and kill the service.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d(TAG, "Task removed — stopping sound and service")
+        stopSound()
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
     
     override fun onBind(intent: Intent?): IBinder? = null
@@ -83,7 +109,7 @@ class SoundLoopService : Service() {
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                         .build()
                 )
                 setDataSource(applicationContext, soundUri)
